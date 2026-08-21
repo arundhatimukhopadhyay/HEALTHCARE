@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import EmergencyEscalation from "../modules/EmergencyEscalation";
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
@@ -21,6 +22,7 @@ export default function PatientPortal({ user, onLogout }) {
   const navigate = useNavigate();
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [isSosOpen, setIsSosOpen] = useState(false);
   const [bookingReason, setBookingReason] = useState("");
 
   const [tokenInfo, setTokenInfo] = useState({
@@ -148,11 +150,7 @@ export default function PatientPortal({ user, onLogout }) {
             </p>
           </div>
           <button
-            onClick={() =>
-              alert(
-                "SOS DISPATCHED: Emergency Coordinates Broadcast to Local Health Worker.",
-              )
-            }
+            onClick={() => setIsSosOpen(true)}
             className="mt-3 w-full bg-red-600 hover:bg-red-700 text-white text-xs font-mono uppercase tracking-wider py-2.5 flex items-center justify-center gap-2 transition"
           >
             <ShieldAlert className="w-4 h-4" /> Trigger Emergency SOS
@@ -283,6 +281,21 @@ export default function PatientPortal({ user, onLogout }) {
             </form>
           </div>
         </div>
+      )}
+
+      {isSosOpen && (
+        <EmergencyEscalation
+          patient={{
+            name: user?.name || "Ramesh Patel",
+            age: 58,
+            bloodGroup: "O+",
+            allergies: "Penicillin",
+            chronicConditions: "Type-2 Diabetes, Hypertension",
+            village: user?.village || "Rampur Subcenter Sector 4",
+            ashaContact: "919903362470",
+          }}
+          onClose={() => setIsSosOpen(false)}
+        />
       )}
 
       {/* Video Modal */}
