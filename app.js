@@ -1,24 +1,37 @@
 const express = require('express');
+const cors = require('cors');
+require('dotenv').config();
+
 const app = express();
 const PORT = process.env.PORT || 5173;
 
-// Middleware to automatically parse incoming JSON data
+// Allow your Vite frontend (likely on localhost:5173 or similar) to call this API
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  credentials: true
+}));
+
 app.use(express.json());
 
-// Base Route (Home page)
-app.get('/', (req, res) =>
-     {
-  res.json({ message: "Welcome to your Node.js backend API!" });
+// --- Routes ---
+app.use('/api/patients', require('./routes/patients'));
+app.use('/api/appointments', require('./routes/appointments'));
+
+app.get('/', (req, res) => {
+  res.json({ message: 'Welcome to your Node.js backend API!' });
 });
 
-// Example Data Route
-app.get('/api/status', (req, res) => 
-    {
-  res.json({ status: "Online", timestamp: new Date() });
+app.get('/api/status', (req, res) => {
+  res.json({ status: 'Online', timestamp: new Date() });
 });
 
-// Start the server
-app.listen(PORT, () => 
-    {
+// --- 404 + error handling (keep these LAST) ---
+app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something went wrong' });
+});
+
+app.listen(PORT, () => {
   console.log(`Application is live and running on http://localhost:${PORT}`);
 });
