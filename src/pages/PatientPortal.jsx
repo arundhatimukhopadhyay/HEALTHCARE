@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Activity,
@@ -19,6 +19,7 @@ import VoiceSearch from "../modules/VoiceSearch";
 import VideoConsult from "../modules/VideoConsult";
 import EmergencyEscalation from "../modules/EmergencyEscalation";
 import { queueOfflineAction } from "../modules/OfflineSync";
+import { apiRequest } from "../api/client";
 
 export default function PatientPortal({ user, onLogout }) {
   const navigate = useNavigate();
@@ -42,7 +43,23 @@ export default function PatientPortal({ user, onLogout }) {
     { id: 3, name: "Atorvastatin 10mg", slot: "09:00 PM", taken: false },
   ]);
 
-  const toggleMed = (id) => {
+  // Load Prescriptions from Backend
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const patientId = user?.id || "ABHA-9182-4421";
+        const data = await apiRequest(`/api/prescriptions/${patientId}`);
+        if (data && Array.isArray(data) && data.length > 0) {
+          setMeds(data);
+        }
+      } catch (err) {
+        console.log("Using cached prescription schedule:", err.message);
+      }
+    }
+    loadData();
+  }, [user]);
+
+  const toggleMed = async (id) => {
     const updatedMeds = meds.map((m) =>
       m.id === id ? { ...m, taken: !m.taken } : m,
     );
@@ -51,24 +68,31 @@ export default function PatientPortal({ user, onLogout }) {
     // Save locally and queue for sync
     localStorage.setItem("patient_meds", JSON.stringify(updatedMeds));
     queueOfflineAction("TOGGLE_MEDICATION", { id, timestamp: new Date() });
-  };
 
-  // Voice Command Handler
-  const handleVoiceCommand = (command) => {
-    if (command === "video_call") {
-      setIsVideoOpen(true);
-    } else if (command === "emergency_sos") {
-      setIsSosOpen(true);
+    // Sync to backend if online
+    try {
+      await apiRequest(`/api/prescriptions/${id}/toggle`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          isTaken: updatedMeds.find((m) => m.id === id)?.taken,
+        }),
+      });
+    } catch (err) {
+      console.log("Pill toggle queued offline:", err.message);
     }
   };
 
-  // Voice Result Handler
+  const handleVoiceCommand = (command) => {
+    if (command === "video_call") setIsVideoOpen(true);
+    else if (command === "emergency_sos") setIsSosOpen(true);
+  };
+
   const handleVoiceResult = (text) => {
     setLastSpokenNote(text);
     setBookingReason(text);
   };
 
-  const handleBookAppointment = (e) => {
+  const handleBookAppointment = async (e) => {
     if (e) e.preventDefault();
     const reason = bookingReason || lastSpokenNote || "General Health Checkup";
 
@@ -78,14 +102,26 @@ export default function PatientPortal({ user, onLogout }) {
       center: "Rampur Primary Subcenter",
       estimatedWait: "~25 mins",
       spokenComplaint: reason,
+      patientId: user?.id || "ABHA-9182-4421",
+      patientName: user?.name || "Ramesh Patel",
+      village: user?.village || "Rampur",
     };
 
     setTokenInfo(newToken);
     setIsBookingOpen(false);
-
-    // Queue offline sync
     queueOfflineAction("BOOK_APPOINTMENT", newToken);
-    alert(`✓ Token Generated successfully with Complaint: "${reason}"`);
+
+    // Call Backend API
+    try {
+      await apiRequest("/api/queue/book", {
+        method: "POST",
+        body: JSON.stringify(newToken),
+      });
+    } catch (err) {
+      console.log("Token booking queued locally:", err.message);
+    }
+
+    alert(`✓ Token Generated: "${reason}"`);
   };
 
   const handleLogout = () => {
@@ -135,7 +171,6 @@ export default function PatientPortal({ user, onLogout }) {
 
       {/* Top Action Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-zinc-300 border border-zinc-300">
-        {/* Token Card */}
         <div className="bg-white p-5">
           <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
             Live Clinic Queue
@@ -156,7 +191,6 @@ export default function PatientPortal({ user, onLogout }) {
           </p>
         </div>
 
-        {/* Telemedicine Trigger */}
         <div className="bg-white p-5 flex flex-col justify-between">
           <div>
             <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
@@ -178,7 +212,6 @@ export default function PatientPortal({ user, onLogout }) {
           </button>
         </div>
 
-        {/* Emergency SOS */}
         <div className="bg-white p-5 flex flex-col justify-between border-l border-zinc-200">
           <div>
             <span className="text-[10px] font-mono uppercase tracking-widest text-red-600 font-bold">
@@ -204,7 +237,6 @@ export default function PatientPortal({ user, onLogout }) {
           onCommand={handleVoiceCommand}
         />
 
-        {/* Quick Voice Booking CTA */}
         {lastSpokenNote && (
           <div className="p-3 bg-zinc-900 text-white flex justify-between items-center">
             <span className="text-xs font-mono">
@@ -222,7 +254,6 @@ export default function PatientPortal({ user, onLogout }) {
 
       {/* Medication Regimen & Clinical Timeline */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Medication Table */}
         <div className="bg-white border border-zinc-300">
           <div className="px-5 py-3 border-b border-zinc-200 flex justify-between items-center bg-zinc-50">
             <span className="text-xs font-mono uppercase tracking-wider font-semibold text-zinc-700">
@@ -261,7 +292,6 @@ export default function PatientPortal({ user, onLogout }) {
           </div>
         </div>
 
-        {/* Clinical History Timeline */}
         <div className="bg-white border border-zinc-300">
           <div className="px-5 py-3 border-b border-zinc-200 flex justify-between items-center bg-zinc-50">
             <span className="text-xs font-mono uppercase tracking-wider font-semibold text-zinc-700">
@@ -294,7 +324,7 @@ export default function PatientPortal({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Booking Modal */}
+      {/* Modals */}
       {isBookingOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-zinc-300 w-full max-w-md p-6 space-y-4">
@@ -335,10 +365,8 @@ export default function PatientPortal({ user, onLogout }) {
         </div>
       )}
 
-      {/* Video Modal */}
       {isVideoOpen && <VideoConsult onClose={() => setIsVideoOpen(false)} />}
 
-      {/* SOS Modal */}
       {isSosOpen && (
         <EmergencyEscalation
           patient={{

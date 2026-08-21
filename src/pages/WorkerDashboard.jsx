@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Activity,
@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import VideoConsult from "../modules/VideoConsult";
+import { apiRequest } from "../api/client";
 
 export default function WorkerDashboard({ user, onLogout }) {
   const navigate = useNavigate();
@@ -58,7 +59,21 @@ export default function WorkerDashboard({ user, onLogout }) {
     chiefComplaint: "",
   });
 
-  // Doctor listens to the patient's spoken symptom
+  // Fetch Live Queue from Backend
+  useEffect(() => {
+    async function fetchQueue() {
+      try {
+        const queueData = await apiRequest("/api/queue");
+        if (queueData && Array.isArray(queueData) && queueData.length > 0) {
+          setPatients(queueData);
+        }
+      } catch (err) {
+        console.log("Using cached clinic queue data:", err.message);
+      }
+    }
+    fetchQueue();
+  }, []);
+
   const playPatientVoiceNote = (complaintText) => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -67,7 +82,7 @@ export default function WorkerDashboard({ user, onLogout }) {
     window.speechSynthesis.speak(utterance);
   };
 
-  const handleRegisterPatient = (e) => {
+  const handleRegisterPatient = async (e) => {
     e.preventDefault();
     if (!newPatient.name) return;
 
@@ -81,9 +96,20 @@ export default function WorkerDashboard({ user, onLogout }) {
       status: "In Waiting Room",
     };
 
+    // Optimistic Update
     setPatients([...patients, entry]);
     setIsRegisterOpen(false);
     setNewPatient({ name: "", age: "", village: "", chiefComplaint: "" });
+
+    // Call Backend
+    try {
+      await apiRequest("/api/queue/book", {
+        method: "POST",
+        body: JSON.stringify(entry),
+      });
+    } catch (err) {
+      console.log("Registered locally:", err.message);
+    }
   };
 
   const handleLogout = () => {
@@ -100,7 +126,7 @@ export default function WorkerDashboard({ user, onLogout }) {
 
   return (
     <div className="space-y-6">
-      {/* Staff Header Identity Bar */}
+      {/* Staff Header */}
       <div className="bg-white border border-zinc-300 p-4 flex flex-wrap justify-between items-center gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-zinc-900 text-white flex items-center justify-center font-mono font-bold">
@@ -173,7 +199,7 @@ export default function WorkerDashboard({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Action Table & Search */}
+      {/* Action Table */}
       <div className="bg-white border border-zinc-300">
         <div className="p-4 border-b border-zinc-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-zinc-50">
           <div>
@@ -225,7 +251,6 @@ export default function WorkerDashboard({ user, onLogout }) {
                   </td>
                   <td className="py-3 px-4 text-zinc-600">{p.village}</td>
 
-                  {/* Chief Complaint Column with Voice Note Audio Player */}
                   <td className="py-3 px-4 text-zinc-800">
                     <div className="flex items-center gap-2">
                       <span>{p.chiefComplaint}</span>
