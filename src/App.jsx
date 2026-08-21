@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { Activity, Lock } from "lucide-react";
 import LandingPage from "./pages/LandingPage";
+import OfflineSync from "./modules/OfflineSync";
 import AuthPage from "./pages/AuthPage";
 import PatientPortal from "./pages/PatientPortal";
 import WorkerDashboard from "./pages/WorkerDashboard";
@@ -31,6 +32,7 @@ function Navbar({ user, onLogout }) {
 
         {/* Right Action Bar */}
         <div className="flex items-center gap-4">
+          <OfflineSync />
           <GoogleTranslate />
 
           {!user ? (

@@ -1,8 +1,7 @@
 import React, { useState } from "react";
-import EmergencyEscalation from "../modules/EmergencyEscalation";
 import { useNavigate } from "react-router-dom";
 import {
-  AlertCircle,
+  Activity,
   Calendar,
   CheckCircle2,
   Clock,
@@ -12,24 +11,29 @@ import {
   Pill,
   Plus,
   ShieldAlert,
+  Sparkles,
   User,
   Video,
 } from "lucide-react";
 import VoiceSearch from "../modules/VoiceSearch";
 import VideoConsult from "../modules/VideoConsult";
+import EmergencyEscalation from "../modules/EmergencyEscalation";
+import { queueOfflineAction } from "../modules/OfflineSync";
 
 export default function PatientPortal({ user, onLogout }) {
   const navigate = useNavigate();
   const [isVideoOpen, setIsVideoOpen] = useState(false);
-  const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [isSosOpen, setIsSosOpen] = useState(false);
+  const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [bookingReason, setBookingReason] = useState("");
+  const [lastSpokenNote, setLastSpokenNote] = useState("");
 
   const [tokenInfo, setTokenInfo] = useState({
     token: "TOKEN #14",
     doctor: "Dr. S. Sharma",
     center: "Rampur Primary Subcenter",
     estimatedWait: "~12 mins",
+    spokenComplaint: "Hypertension Follow-up",
   });
 
   const [meds, setMeds] = useState([
@@ -39,20 +43,49 @@ export default function PatientPortal({ user, onLogout }) {
   ]);
 
   const toggleMed = (id) => {
-    setMeds(meds.map((m) => (m.id === id ? { ...m, taken: !m.taken } : m)));
+    const updatedMeds = meds.map((m) =>
+      m.id === id ? { ...m, taken: !m.taken } : m,
+    );
+    setMeds(updatedMeds);
+
+    // Save locally and queue for sync
+    localStorage.setItem("patient_meds", JSON.stringify(updatedMeds));
+    queueOfflineAction("TOGGLE_MEDICATION", { id, timestamp: new Date() });
+  };
+
+  // Voice Command Handler
+  const handleVoiceCommand = (command) => {
+    if (command === "video_call") {
+      setIsVideoOpen(true);
+    } else if (command === "emergency_sos") {
+      setIsSosOpen(true);
+    }
+  };
+
+  // Voice Result Handler
+  const handleVoiceResult = (text) => {
+    setLastSpokenNote(text);
+    setBookingReason(text);
   };
 
   const handleBookAppointment = (e) => {
-    e.preventDefault();
-    if (!bookingReason) return;
-    setTokenInfo({
+    if (e) e.preventDefault();
+    const reason = bookingReason || lastSpokenNote || "General Health Checkup";
+
+    const newToken = {
       token: `TOKEN #${Math.floor(Math.random() * 80 + 20)}`,
       doctor: "Dr. S. Sharma",
       center: "Rampur Primary Subcenter",
       estimatedWait: "~25 mins",
-    });
+      spokenComplaint: reason,
+    };
+
+    setTokenInfo(newToken);
     setIsBookingOpen(false);
-    setBookingReason("");
+
+    // Queue offline sync
+    queueOfflineAction("BOOK_APPOINTMENT", newToken);
+    alert(`✓ Token Generated successfully with Complaint: "${reason}"`);
   };
 
   const handleLogout = () => {
@@ -66,7 +99,7 @@ export default function PatientPortal({ user, onLogout }) {
       <div className="bg-white border border-zinc-300 p-4 flex flex-wrap justify-between items-center gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-zinc-100 border border-zinc-300 flex items-center justify-center font-mono font-bold text-zinc-800">
-            {user?.name?.charAt(0) || "P"}
+            {user?.name?.charAt(0) || "R"}
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -115,8 +148,11 @@ export default function PatientPortal({ user, onLogout }) {
               {tokenInfo.estimatedWait}
             </span>
           </div>
-          <p className="text-xs text-zinc-500 mt-2">
+          <p className="text-xs text-zinc-700 font-semibold mt-2">
             {tokenInfo.doctor} — {tokenInfo.center}
+          </p>
+          <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
+            Note: {tokenInfo.spokenComplaint}
           </p>
         </div>
 
@@ -129,6 +165,9 @@ export default function PatientPortal({ user, onLogout }) {
             <h4 className="text-sm font-semibold text-zinc-900 mt-1">
               Remote Tele-Doctor Available
             </h4>
+            <p className="text-[11px] text-zinc-500 mt-0.5">
+              Say "Doctor Call" into mic to launch
+            </p>
           </div>
           <button
             onClick={() => setIsVideoOpen(true)}
@@ -142,11 +181,11 @@ export default function PatientPortal({ user, onLogout }) {
         {/* Emergency SOS */}
         <div className="bg-white p-5 flex flex-col justify-between border-l border-zinc-200">
           <div>
-            <span className="text-[10px] font-mono uppercase tracking-widest text-red-600">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-red-600 font-bold">
               Urgent Escalation
             </span>
             <p className="text-xs text-zinc-500 mt-1">
-              Direct GPS ping to local ASHA & CHC Ambulance
+              Say "SOS" or tap below for GPS dispatch
             </p>
           </div>
           <button
@@ -159,13 +198,26 @@ export default function PatientPortal({ user, onLogout }) {
       </div>
 
       {/* Voice Assistant / Symptom Search */}
-      <div className="bg-white border border-zinc-300 p-5">
-        <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 block mb-2">
-          Voice-Assisted Search & Symptom Log
-        </span>
+      <div className="space-y-2">
         <VoiceSearch
-          onResult={(text) => console.log("Voice Recorded:", text)}
+          onResult={handleVoiceResult}
+          onCommand={handleVoiceCommand}
         />
+
+        {/* Quick Voice Booking CTA */}
+        {lastSpokenNote && (
+          <div className="p-3 bg-zinc-900 text-white flex justify-between items-center">
+            <span className="text-xs font-mono">
+              Ready to book appointment for: <strong>"{lastSpokenNote}"</strong>
+            </span>
+            <button
+              onClick={handleBookAppointment}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-mono uppercase px-3 py-1.5 flex items-center gap-1 transition"
+            >
+              <Sparkles className="w-3.5 h-3.5" /> Book Token With This Note
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Medication Regimen & Clinical Timeline */}
@@ -252,7 +304,7 @@ export default function PatientPortal({ user, onLogout }) {
             <form onSubmit={handleBookAppointment} className="space-y-3">
               <div>
                 <label className="block text-xs font-mono uppercase text-zinc-500 mb-1">
-                  Reason for Visit / Symptoms
+                  Reason for Visit / Spoken Symptoms
                 </label>
                 <textarea
                   required
@@ -283,6 +335,10 @@ export default function PatientPortal({ user, onLogout }) {
         </div>
       )}
 
+      {/* Video Modal */}
+      {isVideoOpen && <VideoConsult onClose={() => setIsVideoOpen(false)} />}
+
+      {/* SOS Modal */}
       {isSosOpen && (
         <EmergencyEscalation
           patient={{
@@ -292,14 +348,11 @@ export default function PatientPortal({ user, onLogout }) {
             allergies: "Penicillin",
             chronicConditions: "Type-2 Diabetes, Hypertension",
             village: user?.village || "Rampur Subcenter Sector 4",
-            ashaContact: "919903362470",
+            ashaContact: "+919876543210",
           }}
           onClose={() => setIsSosOpen(false)}
         />
       )}
-
-      {/* Video Modal */}
-      {isVideoOpen && <VideoConsult onClose={() => setIsVideoOpen(false)} />}
     </div>
   );
 }

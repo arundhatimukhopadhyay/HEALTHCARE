@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import {
   Activity,
   LogOut,
+  Mic,
   Plus,
   Search,
   Shield,
   UserCheck,
   Users,
   Video,
+  Volume2,
   X,
 } from "lucide-react";
 import VideoConsult from "../modules/VideoConsult";
@@ -25,7 +27,8 @@ export default function WorkerDashboard({ user, onLogout }) {
       name: "Ramesh Patel",
       age: 58,
       village: "Kalyanpur",
-      chiefComplaint: "Hypertension Followup",
+      chiefComplaint: "Severe knee pain and joint stiffness since 3 days",
+      isVoice: true,
       status: "In Waiting Room",
     },
     {
@@ -33,7 +36,8 @@ export default function WorkerDashboard({ user, onLogout }) {
       name: "Sunita Devi",
       age: 42,
       village: "Rampur",
-      chiefComplaint: "Insulin Dosage Check",
+      chiefComplaint: "Insulin Dosage Check & Morning Dizziness",
+      isVoice: false,
       status: "Consulting",
     },
     {
@@ -41,7 +45,8 @@ export default function WorkerDashboard({ user, onLogout }) {
       name: "Gopal Verma",
       age: 67,
       village: "Kalyanpur",
-      chiefComplaint: "Post-op Dressing",
+      chiefComplaint: "Chest tightness after evening walks",
+      isVoice: true,
       status: "Pending",
     },
   ]);
@@ -53,6 +58,15 @@ export default function WorkerDashboard({ user, onLogout }) {
     chiefComplaint: "",
   });
 
+  // Doctor listens to the patient's spoken symptom
+  const playPatientVoiceNote = (complaintText) => {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(complaintText);
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+  };
+
   const handleRegisterPatient = (e) => {
     e.preventDefault();
     if (!newPatient.name) return;
@@ -63,6 +77,7 @@ export default function WorkerDashboard({ user, onLogout }) {
       age: newPatient.age || "45",
       village: newPatient.village || "Rampur",
       chiefComplaint: newPatient.chiefComplaint || "General Checkup",
+      isVoice: false,
       status: "In Waiting Room",
     };
 
@@ -142,10 +157,10 @@ export default function WorkerDashboard({ user, onLogout }) {
         </div>
         <div className="bg-white p-4">
           <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
-            Critical Follow-ups
+            Voice-Transcribed Triage
           </span>
-          <p className="text-2xl font-mono font-bold text-red-600 mt-1">
-            03 Flagged
+          <p className="text-2xl font-mono font-bold text-emerald-600 mt-1">
+            02 Recorded
           </p>
         </div>
         <div className="bg-white p-4">
@@ -188,7 +203,7 @@ export default function WorkerDashboard({ user, onLogout }) {
                 <th className="py-2.5 px-4">Token</th>
                 <th className="py-2.5 px-4">Patient Details</th>
                 <th className="py-2.5 px-4">Village</th>
-                <th className="py-2.5 px-4">Chief Complaint</th>
+                <th className="py-2.5 px-4">Chief Complaint / Triage Note</th>
                 <th className="py-2.5 px-4">Status</th>
                 <th className="py-2.5 px-4 text-right">Actions</th>
               </tr>
@@ -209,9 +224,24 @@ export default function WorkerDashboard({ user, onLogout }) {
                     </span>
                   </td>
                   <td className="py-3 px-4 text-zinc-600">{p.village}</td>
+
+                  {/* Chief Complaint Column with Voice Note Audio Player */}
                   <td className="py-3 px-4 text-zinc-800">
-                    {p.chiefComplaint}
+                    <div className="flex items-center gap-2">
+                      <span>{p.chiefComplaint}</span>
+                      {p.isVoice && (
+                        <button
+                          onClick={() => playPatientVoiceNote(p.chiefComplaint)}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 font-mono text-[10px] transition shrink-0"
+                          title="Listen to Patient Voice Recording"
+                        >
+                          <Volume2 className="w-3 h-3 text-emerald-700" />{" "}
+                          Listen
+                        </button>
+                      )}
+                    </div>
                   </td>
+
                   <td className="py-3 px-4">
                     <span className="font-mono text-[11px] px-2 py-0.5 border border-zinc-300 bg-zinc-100 text-zinc-800">
                       {p.status}
