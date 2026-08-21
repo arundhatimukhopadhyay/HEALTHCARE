@@ -1,0 +1,374 @@
+require("dotenv").config();
+
+const express = require("express");
+const cors = require("cors");
+const { createClient } = require("@supabase/supabase-js");
+
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+const PORT = process.env.PORT || 5000;
+
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SECRET_KEY
+);
+
+// Home / health check
+app.get("/", (req, res) => {
+    res.json({
+        success: true,
+        message: "Swasthya Saathi Backend is running"
+    });
+});
+
+// --------------------
+// GET ALL DOCTORS
+// --------------------
+app.get("/doctors", async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from("doctors")
+            .select("*")
+            .order("id");
+
+        if (error) {
+            return res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+
+        res.json({
+            success: true,
+            doctors: data
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// --------------------
+// GET ALL PATIENTS
+// --------------------
+app.get("/patients", async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from("patients")
+            .select("*")
+            .order("id");
+
+        if (error) {
+            return res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+
+        res.json({
+            success: true,
+            patients: data
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// --------------------
+// CREATE PATIENT
+// --------------------
+app.post("/patients", async (req, res) => {
+    try {
+        const { name, phone, email } = req.body;
+
+        if (!name) {
+            return res.status(400).json({
+                success: false,
+                error: "Patient name is required"
+            });
+        }
+
+        const { data, error } = await supabase
+            .from("patients")
+            .insert([
+                {
+                    name,
+                    phone: phone || null,
+                    email: email || null
+                }
+            ])
+            .select()
+            .single();
+
+        if (error) {
+            return res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+
+        res.status(201).json({
+            success: true,
+            message: "Patient created successfully",
+            patient: data
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// --------------------
+// CREATE DOCTOR
+// --------------------
+app.post("/doctors", async (req, res) => {
+    try {
+        const { name, specialization } = req.body;
+
+        if (!name) {
+            return res.status(400).json({
+                success: false,
+                error: "Doctor name is required"
+            });
+        }
+
+        const { data, error } = await supabase
+            .from("doctors")
+            .insert([
+                {
+                    name,
+                    specialization: specialization || null
+                }
+            ])
+            .select()
+            .single();
+
+        if (error) {
+            return res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+
+        res.status(201).json({
+            success: true,
+            message: "Doctor created successfully",
+            doctor: data
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// --------------------
+// BOOK APPOINTMENT
+// --------------------
+app.post("/appointments", async (req, res) => {
+    try {
+        const {
+            doctor_id,
+            patient_id,
+            date,
+            time_slot
+        } = req.body;
+
+        if (!doctor_id || !patient_id || !date || !time_slot) {
+            return res.status(400).json({
+                success: false,
+                error: "doctor_id, patient_id, date and time_slot are required"
+            });
+        }
+
+        // Check whether doctor exists
+        const { data: doctor, error: doctorError } = await supabase
+            .from("doctors")
+            .select("id")
+            .eq("id", doctor_id)
+            .single();
+
+        if (doctorError || !doctor) {
+            return res.status(404).json({
+                success: false,
+                error: "Doctor not found"
+            });
+        }
+
+        // Check whether patient exists
+        const { data: patient, error: patientError } = await supabase
+            .from("patients")
+            .select("id")
+            .eq("id", patient_id)
+            .single();
+
+        if (patientError || !patient) {
+            return res.status(404).json({
+                success: false,
+                error: "Patient not found"
+            });
+        }
+
+        // Check if slot is already booked
+        const { data: existingAppointment, error: checkError } =
+            await supabase
+                .from("appointments")
+                .select("id")
+                .eq("doctor_id", doctor_id)
+                .eq("date", date)
+                .eq("time_slot", time_slot)
+                .eq("status", "booked")
+                .maybeSingle();
+
+        if (checkError) {
+            return res.status(500).json({
+                success: false,
+                error: checkError.message
+            });
+        }
+
+        if (existingAppointment) {
+            return res.status(409).json({
+                success: false,
+                error: "This time slot is already booked"
+            });
+        }
+
+        // Create appointment
+        const { data, error } = await supabase
+            .from("appointments")
+            .insert([
+                {
+                    doctor_id,
+                    patient_id,
+                    date,
+                    time_slot,
+                    status: "booked"
+                }
+            ])
+            .select()
+            .single();
+
+        if (error) {
+            return res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+
+        res.status(201).json({
+            success: true,
+            message: "Appointment booked successfully",
+            appointment: data
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// --------------------
+// GET APPOINTMENTS
+// --------------------
+app.get("/appointments", async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from("appointments")
+            .select(`
+                id,
+                date,
+                time_slot,
+                status,
+                doctor_id,
+                patient_id,
+                doctors (
+                    name,
+                    specialization
+                ),
+                patients (
+                    name,
+                    phone,
+                    email
+                )
+            `)
+            .order("date");
+
+        if (error) {
+            return res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+
+        res.json({
+            success: true,
+            appointments: data
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// --------------------
+// CANCEL APPOINTMENT
+// --------------------
+app.patch("/appointments/:id/cancel", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const { data, error } = await supabase
+            .from("appointments")
+            .update({
+                status: "cancelled"
+            })
+            .eq("id", id)
+            .select()
+            .single();
+
+        if (error) {
+            return res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+
+        res.json({
+            success: true,
+            message: "Appointment cancelled successfully",
+            appointment: data
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// Start server
+app.listen(PORT, () => {
+    console.log(`Swasthya Saathi backend running on port ${PORT}`);
+});
