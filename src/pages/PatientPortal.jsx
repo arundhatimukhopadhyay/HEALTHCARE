@@ -1,450 +1,734 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from "react";
 import {
   Activity,
   Calendar,
-  CheckCircle2,
   Clock,
-  FileText,
-  LogOut,
-  MapPin,
   Pill,
-  Plus,
-  ShieldAlert,
-  Sparkles,
+  FileText,
+  Stethoscope,
+  Upload,
+  AlertCircle,
+  Check,
+  Trophy,
+  X,
   User,
-  Users,
-  Video,
+  ArrowRight,
+  ClipboardList,
+  Phone,
+  MapPin,
 } from "lucide-react";
-import VoiceSearch from "../modules/VoiceSearch";
-import VideoConsult from "../modules/VideoConsult";
-import EmergencyEscalation from "../modules/EmergencyEscalation";
-import { queueOfflineAction } from "../modules/OfflineSync";
-import { apiRequest } from "../api/client";
 
-export default function PatientPortal({ user, onLogout }) {
-  const navigate = useNavigate();
-  const [isVideoOpen, setIsVideoOpen] = useState(false);
-  const [isSosOpen, setIsSosOpen] = useState(false);
-  const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const [bookingReason, setBookingReason] = useState("");
-  const [lastSpokenNote, setLastSpokenNote] = useState("");
+export default function PatientPortal() {
+  // =========================
+  // GET LOGGED-IN USER
+  // =========================
+  const storedUser = localStorage.getItem("user");
 
-  // Real patient prescription database mapped to their Supabase rows
-  const patientPrescriptionMap = {
-    PAT001: [
-      { id: 1, name: "Paracetamol 500mg", slot: "Morning", taken: true },
-      { id: 2, name: "Vitamin C", slot: "Afternoon", taken: false },
-    ],
-    PAT002: [
-      { id: 3, name: "Cetirizine 10mg", slot: "Night", taken: false },
-      { id: 4, name: "Omeprazole 20mg", slot: "Before Breakfast", taken: true },
-    ],
-    PAT003: [{ id: 5, name: "Cough Syrup", slot: "Morning", taken: false }],
-    PAT004: [{ id: 6, name: "Paracetamol 500mg", slot: "Night", taken: true }],
-  };
+  let user = null;
 
-  const currentPatientId = user?.id || "PAT001";
-  const [meds, setMeds] = useState(() => {
-    return (
-      patientPrescriptionMap[currentPatientId] ||
-      patientPrescriptionMap["PAT001"]
-    );
+  try {
+    user = storedUser ? JSON.parse(storedUser) : null;
+  } catch (error) {
+    console.error("Unable to read user data:", error);
+  }
+
+  const patientName = user?.name || "Patient";
+
+  // =========================
+  // MEDICATION STATE
+  // =========================
+  const [medications, setMedications] = useState({
+    morning: false,
+    afternoon: false,
+    evening: false,
   });
 
-  // Persistent Token per Patient (Never resets to 14!)
-  const [tokenInfo, setTokenInfo] = useState(() => {
-    const saved = localStorage.getItem(`patient_token_${currentPatientId}`);
-    return saved
-      ? JSON.parse(saved)
-      : {
-          token:
-            currentPatientId === "PAT001"
-              ? "T-001"
-              : currentPatientId === "PAT002"
-                ? "T-002"
-                : "T-017",
-          doctor: "Dr. Rakesh Mohanty",
-          center: `${user?.village || "Rampur"} Primary Health Subcenter`,
-          estimatedWait: "~15 mins",
-          spokenComplaint:
-            currentPatientId === "PAT001"
-              ? "Routine Hypertension Review"
-              : "Prescription Refill",
-        };
-  });
+  // =========================
+  // CELEBRATION STATE
+  // =========================
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [streak, setStreak] = useState(7);
+  const [celebrationShown, setCelebrationShown] = useState(false);
 
-  // Update prescriptions whenever user changes
-  useEffect(() => {
-    if (patientPrescriptionMap[user?.id]) {
-      setMeds(patientPrescriptionMap[user?.id]);
-    }
-  }, [user]);
+  // =========================
+  // TAB STATE
+  // =========================
+  const [activeTab, setActiveTab] = useState("consultations");
 
-  const toggleMed = (id) => {
-    const updatedMeds = meds.map((m) =>
-      m.id === id ? { ...m, taken: !m.taken } : m,
-    );
-    setMeds(updatedMeds);
-    queueOfflineAction("TOGGLE_MEDICATION", {
-      id,
-      patientId: currentPatientId,
-      timestamp: new Date(),
+  // =========================
+  // MEDICATION SCHEDULE
+  // =========================
+  const medicationSlots = [
+    {
+      id: "morning",
+      label: "Morning Dose",
+      time: "8:00 AM",
+    },
+    {
+      id: "afternoon",
+      label: "Afternoon Dose",
+      time: "2:00 PM",
+    },
+    {
+      id: "evening",
+      label: "Evening Dose",
+      time: "8:00 PM",
+    },
+  ];
+
+  // =========================
+  // MEDICATION HANDLER
+  // =========================
+  const toggleMedication = (time) => {
+    setMedications((prev) => {
+      const updated = {
+        ...prev,
+        [time]: !prev[time],
+      };
+
+      const allCompleted =
+        updated.morning &&
+        updated.afternoon &&
+        updated.evening;
+
+      if (allCompleted && !celebrationShown) {
+        setShowCelebration(true);
+        setCelebrationShown(true);
+        setStreak((current) => current + 1);
+      }
+
+      return updated;
     });
   };
 
-  const handleVoiceCommand = (command) => {
-    if (command === "video_call") setIsVideoOpen(true);
-    else if (command === "emergency_sos") setIsSosOpen(true);
-  };
-
-  const handleVoiceResult = (text) => {
-    setLastSpokenNote(text);
-    setBookingReason(text);
-  };
-
-  const handleBookAppointment = async (e) => {
-    if (e) e.preventDefault();
-    const reason =
-      bookingReason || lastSpokenNote || "General Health Consultation";
-
-    // Clean sequential token (e.g. T-005, T-006)
-    const currentQueue = JSON.parse(
-      localStorage.getItem("community_shared_queue") || "[]",
-    );
-    const nextNumber =
-      currentQueue.length > 0
-        ? parseInt(
-            currentQueue[currentQueue.length - 1].token.replace(/\D/g, "") ||
-              "4",
-          ) + 1
-        : 5;
-
-    const sequentialToken = `T-00${nextNumber}`;
-
-    const newAppointment = {
-      token: sequentialToken,
-      token_number: sequentialToken,
-      name: user?.name || "Rahul Das",
-      patient_name: user?.name || "Rahul Das",
-      patientId: user?.uuid || user?.id || "PAT001",
-      age: 48,
-      village: user?.village || "Rampur",
-      reason: reason,
-      chiefComplaint: reason,
-      isVoice: true,
-      status: "In Waiting Room",
-    };
-
-    setTokenInfo({
-      token: sequentialToken,
-      doctor: "Dr. Rakesh Mohanty",
-      center: `${user?.village || "Rampur"} Primary Subcenter`,
-      estimatedWait: `~${nextNumber * 6} mins`,
-      spokenComplaint: reason,
-    });
-
-    localStorage.setItem(
-      `patient_token_${currentPatientId}`,
-      JSON.stringify({
-        token: sequentialToken,
-        doctor: "Dr. Rakesh Mohanty",
-        center: `${user?.village || "Rampur"} Primary Subcenter`,
-        estimatedWait: `~${nextNumber * 6} mins`,
-        spokenComplaint: reason,
-      }),
-    );
-
-    // Update shared queue
-    const updatedQueue = [
-      ...currentQueue.filter((p) => p.token !== sequentialToken),
-      newAppointment,
-    ];
-    localStorage.setItem(
-      "community_shared_queue",
-      JSON.stringify(updatedQueue),
-    );
-    window.dispatchEvent(new Event("shared-queue-updated"));
-
-    setIsBookingOpen(false);
-    queueOfflineAction("BOOK_APPOINTMENT", newAppointment);
-
-    try {
-      await apiRequest("/api/appointments", {
-        method: "POST",
-        body: JSON.stringify(newAppointment),
-      });
-    } catch (err) {}
-
-    alert(`✓ Generated Token: ${sequentialToken} ("${reason}")`);
-  };
-
-  const handleLogout = () => {
-    if (onLogout) onLogout();
-    navigate("/auth");
-  };
+  const completedCount =
+    Object.values(medications).filter(Boolean).length;
 
   return (
-    <div className="space-y-6 font-sans">
-      {/* Patient Header Identity Bar with Village Badge */}
-      <div className="bg-white border-2 border-zinc-900 p-4 flex flex-wrap justify-between items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-emerald-700 text-white flex items-center justify-center font-mono font-bold text-lg">
-            {user?.name?.charAt(0) || "R"}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-bold text-zinc-900 text-lg">
-                {user?.name || "Rahul Das"}
-              </h2>
-              <span className="text-[10px] font-mono bg-emerald-50 text-emerald-800 border border-emerald-300 px-2 py-0.5 font-bold uppercase">
-                {user?.id || "PAT001"} • VERIFIED
-              </span>
+    <div className="min-h-screen bg-slate-950 text-white">
+      {/* ================= HEADER ================= */}
+
+      <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 bg-cyan-500 rounded-xl flex items-center justify-center">
+              <Activity className="text-slate-950" size={25} />
             </div>
-            <p className="text-xs text-zinc-600 font-mono flex items-center gap-1 mt-0.5">
-              <MapPin className="w-3.5 h-3.5 text-emerald-700" /> Village:{" "}
-              <strong>{user?.village || "Rampur"}</strong> (Primary Subcenter
-              Sector)
-            </p>
+
+            <div>
+              <h1 className="text-lg md:text-xl font-bold">
+                HealthConnect
+              </h1>
+
+              <p className="text-xs text-slate-400">
+                Patient Portal
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-xl text-sm">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Account Active
+            </div>
+
+            <div className="w-10 h-10 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
+              <User className="text-cyan-400" size={20} />
+            </div>
           </div>
         </div>
+      </header>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsBookingOpen(true)}
-            className="bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-xs uppercase px-4 py-2.5 flex items-center gap-1.5 transition"
-          >
-            <Plus className="w-3.5 h-3.5" /> Book Clinic Token
-          </button>
-          <button
-            onClick={handleLogout}
-            className="border border-zinc-300 hover:bg-zinc-100 text-zinc-700 font-mono text-xs uppercase px-3 py-2.5 flex items-center gap-1.5 transition"
-          >
-            <Users className="w-3.5 h-3.5" /> Switch Patient
-          </button>
-        </div>
-      </div>
+      <main className="max-w-7xl mx-auto px-4 md:px-8 py-8">
+        {/* ================= WELCOME ================= */}
 
-      {/* Top Action Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-zinc-300 border border-zinc-300">
-        <div className="bg-white p-5">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
-            Live Clinic Queue
-          </span>
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-3xl font-mono font-bold text-zinc-900">
-              {tokenInfo.token}
-            </span>
-            <span className="text-xs font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5">
-              {tokenInfo.estimatedWait}
-            </span>
-          </div>
-          <p className="text-xs text-zinc-700 font-semibold mt-2">
-            {tokenInfo.doctor} — {tokenInfo.center}
+        <section className="mb-8">
+          <p className="text-cyan-400 font-medium">
+            Good Morning 👋
           </p>
-          <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
-            Complaint: {tokenInfo.spokenComplaint}
+
+          <h2 className="text-3xl md:text-4xl font-bold mt-2">
+            Welcome back, {patientName}!
+          </h2>
+
+          <p className="text-slate-400 mt-3">
+            Manage your appointments, medications, prescriptions, and health
+            records in one place.
           </p>
-        </div>
+        </section>
 
-        <div className="bg-white p-5 flex flex-col justify-between">
-          <div>
-            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
-              Virtual Consultation
-            </span>
-            <h4 className="text-sm font-semibold text-zinc-900 mt-1">
-              Dr. Rakesh Mohanty Available
-            </h4>
-            <p className="text-[11px] text-zinc-500 mt-0.5">
-              Say "Doctor Call" into mic to launch
-            </p>
+        {/* ================= QUICK ACTIONS ================= */}
+
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-5">
+            <Activity className="text-cyan-400" size={22} />
+
+            <h2 className="text-xl font-semibold">
+              Quick Actions
+            </h2>
           </div>
-          <button
-            onClick={() => setIsVideoOpen(true)}
-            className="mt-3 w-full bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-mono uppercase tracking-wider py-2.5 flex items-center justify-center gap-2 transition"
-          >
-            <Video className="w-4 h-4 text-emerald-400" /> Start Doctor Video
-            Call
-          </button>
-        </div>
 
-        <div className="bg-white p-5 flex flex-col justify-between border-l border-zinc-200">
-          <div>
-            <span className="text-[10px] font-mono uppercase tracking-widest text-red-600 font-bold">
-              Urgent Escalation
-            </span>
-            <p className="text-xs text-zinc-500 mt-1">
-              Direct GPS ping to Rampur ASHA worker
-            </p>
-          </div>
-          <button
-            onClick={() => setIsSosOpen(true)}
-            className="mt-3 w-full bg-red-600 hover:bg-red-700 text-white text-xs font-mono uppercase tracking-wider py-2.5 flex items-center justify-center gap-2 transition"
-          >
-            <ShieldAlert className="w-4 h-4" /> Trigger Emergency SOS
-          </button>
-        </div>
-      </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* BOOK APPOINTMENT */}
 
-      {/* Voice Assistant */}
-      <div className="space-y-2">
-        <VoiceSearch
-          onResult={handleVoiceResult}
-          onCommand={handleVoiceCommand}
-          readAloudText={`Hello ${user?.name || "Rahul"}. You have ${meds.length} active prescriptions in ${user?.village || "Rampur"}.`}
-        />
+            <button className="bg-slate-900 border border-slate-800 hover:border-cyan-500 rounded-2xl p-5 text-left transition group">
+              <div className="w-11 h-11 bg-cyan-500/10 rounded-xl flex items-center justify-center group-hover:bg-cyan-500/20">
+                <Calendar className="text-cyan-400" size={22} />
+              </div>
 
-        {lastSpokenNote && (
-          <div className="p-3 bg-zinc-900 text-white flex justify-between items-center">
-            <span className="text-xs font-mono">
-              Ready to book appointment for: <strong>"{lastSpokenNote}"</strong>
-            </span>
+              <h3 className="font-semibold mt-4">
+                Book Appointment
+              </h3>
+
+              <p className="text-xs text-slate-400 mt-2">
+                Schedule a consultation
+              </p>
+            </button>
+
+            {/* UPLOAD REPORT */}
+
+            <button className="bg-slate-900 border border-slate-800 hover:border-teal-500 rounded-2xl p-5 text-left transition group">
+              <div className="w-11 h-11 bg-teal-500/10 rounded-xl flex items-center justify-center group-hover:bg-teal-500/20">
+                <Upload className="text-teal-400" size={22} />
+              </div>
+
+              <h3 className="font-semibold mt-4">
+                Upload Report
+              </h3>
+
+              <p className="text-xs text-slate-400 mt-2">
+                Add medical documents
+              </p>
+            </button>
+
+            {/* PRESCRIPTIONS */}
+
             <button
-              onClick={handleBookAppointment}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-mono uppercase px-3 py-1.5 flex items-center gap-1 transition"
+              onClick={() => setActiveTab("prescriptions")}
+              className="bg-slate-900 border border-slate-800 hover:border-purple-500 rounded-2xl p-5 text-left transition group"
             >
-              <Sparkles className="w-3.5 h-3.5" /> Book Token With This Note
+              <div className="w-11 h-11 bg-purple-500/10 rounded-xl flex items-center justify-center group-hover:bg-purple-500/20">
+                <Pill className="text-purple-400" size={22} />
+              </div>
+
+              <h3 className="font-semibold mt-4">
+                Prescriptions
+              </h3>
+
+              <p className="text-xs text-slate-400 mt-2">
+                View active medicines
+              </p>
+            </button>
+
+            {/* EMERGENCY */}
+
+            <button className="bg-slate-900 border border-slate-800 hover:border-red-500 rounded-2xl p-5 text-left transition group">
+              <div className="w-11 h-11 bg-red-500/10 rounded-xl flex items-center justify-center group-hover:bg-red-500/20">
+                <AlertCircle className="text-red-400" size={22} />
+              </div>
+
+              <h3 className="font-semibold mt-4">
+                Emergency Help
+              </h3>
+
+              <p className="text-xs text-slate-400 mt-2">
+                Request immediate assistance
+              </p>
             </button>
           </div>
-        )}
-      </div>
+        </section>
 
-      {/* Medication Regimen (Specific to this Patient from Supabase!) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white border border-zinc-300">
-          <div className="px-5 py-3 border-b border-zinc-200 flex justify-between items-center bg-zinc-50">
-            <span className="text-xs font-mono uppercase tracking-wider font-semibold text-zinc-700">
-              Active Prescriptions ({user?.name || "Rahul Das"})
-            </span>
-            <Pill className="w-4 h-4 text-emerald-700" />
+        {/* ================= TODAY'S HEALTH OVERVIEW ================= */}
+
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-5">
+            <ClipboardList className="text-cyan-400" size={22} />
+
+            <h2 className="text-xl font-semibold">
+              Today's Health Overview
+            </h2>
           </div>
-          <div className="divide-y divide-zinc-200">
-            {meds.map((med) => (
-              <div
-                key={med.id}
-                className="p-4 flex items-center justify-between hover:bg-zinc-50/50"
-              >
-                <div>
-                  <h4
-                    className={`text-sm font-semibold ${med.taken ? "line-through text-zinc-400" : "text-zinc-900"}`}
-                  >
-                    {med.name}
-                  </h4>
-                  <span className="text-xs font-mono text-zinc-500">
-                    Dosage Timing: {med.slot}
-                  </span>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* NEXT CONSULTATION */}
+
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+              <div className="flex justify-between items-start">
+                <div className="w-12 h-12 bg-cyan-500/10 rounded-2xl flex items-center justify-center">
+                  <Stethoscope className="text-cyan-400" size={25} />
                 </div>
+
+                <span className="text-xs bg-cyan-500/10 text-cyan-400 px-3 py-1 rounded-full">
+                  Upcoming
+                </span>
+              </div>
+
+              <p className="text-slate-400 mt-5 text-sm">
+                Next Consultation
+              </p>
+
+              <h3 className="font-semibold text-lg mt-2">
+                General Health Checkup
+              </h3>
+
+              <div className="flex items-center gap-2 mt-4 text-sm text-slate-400">
+                <Calendar size={16} />
+                Tomorrow
+              </div>
+
+              <div className="flex items-center gap-2 mt-2 text-sm text-slate-400">
+                <Clock size={16} />
+                10:30 AM
+              </div>
+            </div>
+
+            {/* MEDICATION PROGRESS */}
+
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+              <div className="flex justify-between items-start">
+                <div className="w-12 h-12 bg-teal-500/10 rounded-2xl flex items-center justify-center">
+                  <Pill className="text-teal-400" size={25} />
+                </div>
+
+                <span className="text-xs bg-teal-500/10 text-teal-400 px-3 py-1 rounded-full">
+                  Today
+                </span>
+              </div>
+
+              <p className="text-slate-400 mt-5 text-sm">
+                Medication Progress
+              </p>
+
+              <h3 className="font-semibold text-lg mt-2">
+                {completedCount} of 3 doses completed
+              </h3>
+
+              <div className="mt-5 h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-cyan-400 rounded-full transition-all duration-500"
+                  style={{
+                    width: `${(completedCount / 3) * 100}%`,
+                  }}
+                />
+              </div>
+
+              <p className="text-sm text-slate-400 mt-3">
+                Keep following your prescribed schedule.
+              </p>
+            </div>
+
+            {/* HEALTH TASKS */}
+
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+              <div className="flex justify-between items-start">
+                <div className="w-12 h-12 bg-orange-500/10 rounded-2xl flex items-center justify-center">
+                  <ClipboardList className="text-orange-400" size={25} />
+                </div>
+
+                <span className="text-xs bg-orange-500/10 text-orange-400 px-3 py-1 rounded-full">
+                  Attention
+                </span>
+              </div>
+
+              <p className="text-slate-400 mt-5 text-sm">
+                Health Tasks
+              </p>
+
+              <h3 className="font-semibold text-lg mt-2">
+                2 tasks pending
+              </h3>
+
+              <div className="mt-4 space-y-2">
+                <p className="text-sm text-slate-400">
+                  • Upload latest medical report
+                </p>
+
+                <p className="text-sm text-slate-400">
+                  • Confirm follow-up appointment
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ================= MEDICATION ADHERENCE ================= */}
+
+        <section className="bg-slate-900 border border-slate-800 rounded-3xl p-5 md:p-7 mb-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-xl font-semibold">
+                Medication Adherence
+              </h2>
+
+              <p className="text-sm text-slate-400 mt-1">
+                Mark each dose after taking your medication.
+              </p>
+            </div>
+
+            <div className="bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 px-4 py-2 rounded-xl">
+              {completedCount} / 3 doses completed
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {medicationSlots.map((dose) => {
+              const completed = medications[dose.id];
+
+              return (
                 <button
-                  onClick={() => toggleMed(med.id)}
-                  className={`text-xs font-mono px-3 py-1.5 border transition ${
-                    med.taken
-                      ? "bg-emerald-50 text-emerald-800 border-emerald-300"
-                      : "bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border-zinc-300"
+                  key={dose.id}
+                  onClick={() => toggleMedication(dose.id)}
+                  className={`text-left p-6 rounded-2xl border transition-all duration-300 ${
+                    completed
+                      ? "bg-emerald-500/10 border-emerald-500/60"
+                      : "bg-slate-950 border-slate-800 hover:border-cyan-500"
                   }`}
                 >
-                  {med.taken ? "✓ Taken" : "Mark Taken"}
+                  <div className="flex items-center justify-between">
+                    <div className="p-3 bg-slate-800 rounded-xl">
+                      <Pill
+                        className={
+                          completed
+                            ? "text-emerald-400"
+                            : "text-cyan-400"
+                        }
+                        size={24}
+                      />
+                    </div>
+
+                    <div
+                      className={`w-7 h-7 rounded-full flex items-center justify-center border ${
+                        completed
+                          ? "bg-emerald-500 border-emerald-500"
+                          : "border-slate-600"
+                      }`}
+                    >
+                      {completed && <Check size={16} />}
+                    </div>
+                  </div>
+
+                  <h3 className="font-semibold text-lg mt-5">
+                    {dose.label}
+                  </h3>
+
+                  <p className="text-sm text-slate-400 mt-1">
+                    Scheduled: {dose.time}
+                  </p>
+
+                  <p
+                    className={`text-sm mt-4 ${
+                      completed
+                        ? "text-emerald-400"
+                        : "text-slate-500"
+                    }`}
+                  >
+                    {completed
+                      ? "✓ Dose completed"
+                      : "Tap to mark as taken"}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+
+          {completedCount === 3 && (
+            <div className="mt-6 flex items-center gap-4 p-5 rounded-2xl bg-gradient-to-r from-cyan-500/15 to-teal-500/15 border border-cyan-500/30">
+              <div className="w-12 h-12 rounded-full bg-yellow-400/20 flex items-center justify-center">
+                <Trophy className="text-yellow-400" />
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-cyan-300">
+                  All doses completed! 🎉
+                </h3>
+
+                <p className="text-sm text-slate-300">
+                  Great consistency! You are on a {streak}-day streak.
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* ================= TABBED WORKSPACE ================= */}
+
+        <section className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden mb-10">
+          <div className="flex overflow-x-auto border-b border-slate-800">
+            <button
+              onClick={() => setActiveTab("consultations")}
+              className={`flex items-center gap-2 px-6 py-5 whitespace-nowrap transition ${
+                activeTab === "consultations"
+                  ? "text-cyan-400 border-b-2 border-cyan-400 bg-cyan-500/5"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Stethoscope size={18} />
+              Consultations
+            </button>
+
+            <button
+              onClick={() => setActiveTab("prescriptions")}
+              className={`flex items-center gap-2 px-6 py-5 whitespace-nowrap transition ${
+                activeTab === "prescriptions"
+                  ? "text-cyan-400 border-b-2 border-cyan-400 bg-cyan-500/5"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Pill size={18} />
+              Active Prescriptions
+            </button>
+
+            <button
+              onClick={() => setActiveTab("records")}
+              className={`flex items-center gap-2 px-6 py-5 whitespace-nowrap transition ${
+                activeTab === "records"
+                  ? "text-cyan-400 border-b-2 border-cyan-400 bg-cyan-500/5"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <FileText size={18} />
+              Health Records
+            </button>
+          </div>
+
+          {/* CONSULTATIONS */}
+
+          {activeTab === "consultations" && (
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-5">
+                Upcoming Consultations
+              </h2>
+
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+                <div className="flex gap-4">
+                  <div className="p-3 bg-cyan-500/10 rounded-xl h-fit">
+                    <Stethoscope className="text-cyan-400" />
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold">
+                      General Health Consultation
+                    </h3>
+
+                    <p className="text-sm text-slate-400 mt-2">
+                      Regular consultation and health follow-up.
+                    </p>
+
+                    <div className="flex flex-wrap gap-4 text-sm text-slate-400 mt-4">
+                      <span className="flex items-center gap-1">
+                        <Calendar size={15} />
+                        Tomorrow
+                      </span>
+
+                      <span className="flex items-center gap-1">
+                        <Clock size={15} />
+                        10:30 AM
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <button className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold px-5 py-3 rounded-xl transition">
+                  View Details
                 </button>
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          )}
 
-        {/* Clinical History Timeline */}
-        <div className="bg-white border border-zinc-300">
-          <div className="px-5 py-3 border-b border-zinc-200 flex justify-between items-center bg-zinc-50">
-            <span className="text-xs font-mono uppercase tracking-wider font-semibold text-zinc-700">
-              Medical Record History
-            </span>
-            <FileText className="w-4 h-4 text-zinc-500" />
+          {/* PRESCRIPTIONS */}
+
+          {activeTab === "prescriptions" && (
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-5">
+                Active Prescriptions
+              </h2>
+
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5">
+                <div className="flex justify-between gap-4">
+                  <div>
+                    <h3 className="font-semibold">
+                      Current Prescription
+                    </h3>
+
+                    <p className="text-sm text-slate-400 mt-2">
+                      Follow the dosage instructions provided by your healthcare professional.
+                    </p>
+                  </div>
+
+                  <Pill className="text-teal-400 flex-shrink-0" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                  <div className="bg-slate-900 rounded-xl p-4">
+                    <p className="text-xs text-slate-500">
+                      Frequency
+                    </p>
+
+                    <p className="mt-2 font-medium">
+                      As prescribed
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-900 rounded-xl p-4">
+                    <p className="text-xs text-slate-500">
+                      Status
+                    </p>
+
+                    <p className="mt-2 font-medium text-emerald-400">
+                      Active
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-900 rounded-xl p-4">
+                    <p className="text-xs text-slate-500">
+                      Next Dose
+                    </p>
+
+                    <p className="mt-2 font-medium">
+                      Check schedule
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* HEALTH RECORDS */}
+
+          {activeTab === "records" && (
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-5">
+                Health Records
+              </h2>
+
+              <div className="space-y-3">
+                {[
+                  {
+                    name: "Blood Test Report",
+                    date: "15 Aug 2026",
+                  },
+                  {
+                    name: "Previous Prescription",
+                    date: "10 Aug 2026",
+                  },
+                  {
+                    name: "Health Checkup Summary",
+                    date: "02 Aug 2026",
+                  },
+                ].map((record) => (
+                  <div
+                    key={record.name}
+                    className="bg-slate-950 border border-slate-800 hover:border-cyan-500/50 rounded-xl p-4 flex items-center justify-between transition"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 bg-cyan-500/10 rounded-lg">
+                        <FileText className="text-cyan-400" />
+                      </div>
+
+                      <div>
+                        <h3 className="font-medium">
+                          {record.name}
+                        </h3>
+
+                        <p className="text-sm text-slate-500">
+                          {record.date}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button className="flex items-center gap-1 text-cyan-400 hover:text-cyan-300 text-sm">
+                      View
+                      <ArrowRight size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* ================= HELP SECTION ================= */}
+
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <div className="flex items-center gap-3">
+              <Phone className="text-cyan-400" />
+
+              <div>
+                <h3 className="font-semibold">
+                  Need Help?
+                </h3>
+
+                <p className="text-sm text-slate-400">
+                  Contact the healthcare support team.
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="p-5 space-y-4 font-mono text-xs">
-            <div className="border-l-2 border-zinc-900 pl-4 space-y-1">
-              <span className="text-zinc-400">2026-08-19 • LAB DIAGNOSTIC</span>
-              <p className="font-sans text-sm font-medium text-zinc-900">
-                Fasting Blood Sugar: 114 mg/dL
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <div className="flex items-center gap-3">
+              <MapPin className="text-teal-400" />
+
+              <div>
+                <h3 className="font-semibold">
+                  Find Healthcare Services
+                </h3>
+
+                <p className="text-sm text-slate-400">
+                  Locate nearby healthcare support and facilities.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* ================= CELEBRATION MODAL ================= */}
+
+      {showCelebration && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-md bg-slate-900 border border-cyan-500/30 rounded-3xl p-8 text-center shadow-2xl">
+            <button
+              onClick={() => setShowCelebration(false)}
+              className="absolute right-4 top-4 text-slate-400 hover:text-white"
+            >
+              <X size={22} />
+            </button>
+
+            <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-yellow-300 to-orange-500 flex items-center justify-center shadow-lg">
+              <Trophy
+                className="text-slate-950"
+                size={50}
+              />
+            </div>
+
+            <h2 className="text-3xl font-bold mt-6">
+              Fantastic Job, {patientName}! 🎉
+            </h2>
+
+            <p className="text-slate-400 mt-3">
+              You completed all your scheduled medication doses for today.
+            </p>
+
+            <div className="mt-6 p-5 bg-slate-950 border border-slate-800 rounded-2xl">
+              <p className="text-sm text-slate-400">
+                Current Medication Streak
               </p>
-              <p className="text-zinc-500 font-sans">
-                Uploaded by {user?.village || "Rampur"} PHC Subcenter
+
+              <p className="text-4xl font-bold text-cyan-400 mt-2">
+                {streak} Days 🔥
               </p>
             </div>
-            <div className="border-l-2 border-zinc-300 pl-4 space-y-1">
-              <span className="text-zinc-400">
-                2026-07-11 • CLINICAL CONSULT
-              </span>
-              <p className="font-sans text-sm font-medium text-zinc-900">
-                Dr. Rakesh Mohanty — General Physical Examination
-              </p>
-            </div>
+
+            <button
+              onClick={() => setShowCelebration(false)}
+              className="w-full mt-6 bg-cyan-500 hover:bg-cyan-400 text-slate-950 py-3 rounded-xl font-semibold transition"
+            >
+              Continue
+            </button>
           </div>
         </div>
-      </div>
-
-      {/* Booking Modal */}
-      {isBookingOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-zinc-300 w-full max-w-md p-6 space-y-4">
-            <h3 className="text-base font-bold text-zinc-900 font-mono uppercase">
-              Book Subcenter Clinic Token
-            </h3>
-            <form onSubmit={handleBookAppointment} className="space-y-3">
-              <div>
-                <label className="block text-xs font-mono uppercase text-zinc-500 mb-1">
-                  Patient Name
-                </label>
-                <input
-                  type="text"
-                  disabled
-                  value={`${user?.name || "Rahul Das"} (${user?.village || "Rampur"})`}
-                  className="w-full bg-zinc-100 border border-zinc-300 p-2 text-xs font-mono"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-mono uppercase text-zinc-500 mb-1">
-                  Reason for Visit / Symptoms
-                </label>
-                <textarea
-                  required
-                  rows="3"
-                  placeholder="Describe symptoms..."
-                  value={bookingReason}
-                  onChange={(e) => setBookingReason(e.target.value)}
-                  className="w-full border border-zinc-300 p-2 text-sm focus:outline-none focus:border-zinc-900 font-sans"
-                />
-              </div>
-              <div className="flex gap-2 justify-end">
-                <button
-                  type="button"
-                  onClick={() => setIsBookingOpen(false)}
-                  className="px-3 py-2 border border-zinc-300 text-xs font-mono uppercase hover:bg-zinc-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-mono uppercase"
-                >
-                  Generate Token
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {isVideoOpen && <VideoConsult onClose={() => setIsVideoOpen(false)} />}
-      {isSosOpen && (
-        <EmergencyEscalation
-          patient={{
-            name: user?.name || "Rahul Das",
-            age: 48,
-            bloodGroup: "O+",
-            allergies: "None Reported",
-            chronicConditions: "Hypertension",
-            village: user?.village || "Rampur",
-            ashaContact: "+919876543210",
-          }}
-          onClose={() => setIsSosOpen(false)}
-        />
       )}
     </div>
   );
