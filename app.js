@@ -1,37 +1,35 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
+require('dotenv').config(); // THIS MUST BE ON LINE 1
+const express = require("express");
+const cors = require("cors");
+const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
-const PORT = process.env.PORT || 5173;
-
-// Allow your Vite frontend (likely on localhost:5173 or similar) to call this API
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
-  credentials: true
-}));
-
+app.use(cors());
 app.use(express.json());
 
-// --- Routes ---
-app.use('/api/patients', require('./routes/patients'));
-app.use('/api/appointments', require('./routes/appointments'));
+// Adding temporary console log to debug:
+console.log("Supabase URL Check:", process.env.SUPABASE_URL);
 
-app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to your Node.js backend API!' });
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SECRET_KEY
+);
+
+// Importing  Routes
+const appointmentRoutes = require('./routes/appointments');
+const patientRoutes = require('./routes/patients');
+const queueRoutes = require('./routes/queue');
+
+// Defining API Endpoints
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/patients', patientRoutes);
+app.use('/api/queue', queueRoutes);
+
+app.get("/", (req, res) => {
+    res.json({ success: true, message: "Swasthya Saathi Backend is running" });
 });
 
-app.get('/api/status', (req, res) => {
-  res.json({ status: 'Online', timestamp: new Date() });
-});
-
-// --- 404 + error handling (keep these LAST) ---
-app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong' });
-});
-
+const PORT = process.env.PORT || 5173;
 app.listen(PORT, () => {
-  console.log(`Application is live and running on http://localhost:${PORT}`);
+    console.log(`Server is running on http://localhost:${PORT}`);
 });
