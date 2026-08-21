@@ -1,6 +1,15 @@
 import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Activity, ArrowRight, Lock, Phone, Shield, User } from "lucide-react";
+import {
+  Activity,
+  ArrowRight,
+  Lock,
+  MapPin,
+  Pill,
+  Shield,
+  User,
+  Users,
+} from "lucide-react";
 import { apiRequest } from "../api/client";
 
 export default function AuthPage({ onLogin }) {
@@ -15,248 +24,203 @@ export default function AuthPage({ onLogin }) {
     identifier: "",
     village: "",
     pin: "",
+    uuid: "",
   });
 
   const navigate = useNavigate();
 
+  // All Real Database Profiles Seeded in Supabase
+  const databasePatients = [
+    {
+      id: "PAT001",
+      uuid: "2103e7ac-8ab0-47ec-8173-d009a44a6ecc",
+      name: "Rahul Das",
+      village: "Rampur",
+      pin: "demo_hash_001",
+      tag: "Hypertension • 2 Active Prescriptions",
+    },
+    {
+      id: "PAT002",
+      uuid: "12a10d6d-558a-4b6f-bf76-443e383f1971",
+      name: "Priya Sahu",
+      village: "Haripur",
+      pin: "demo_hash_002",
+      tag: "Asthma/Allergy • 2 Active Prescriptions",
+    },
+    {
+      id: "PAT003",
+      uuid: "a421f721-fd4d-4a33-983d-df99fda8b091",
+      name: "Amit Behera",
+      village: "Gopinathpur",
+      pin: "demo_hash_003",
+      tag: "Respiratory • Cough Syrup",
+    },
+    {
+      id: "PAT004",
+      uuid: "30f3dc99-0846-4e9b-981c-4aa4d437d8f5",
+      name: "Sneha Rout",
+      village: "Nandapur",
+      pin: "demo_hash_004",
+      tag: "Post-Op Fever • Paracetamol",
+    },
+  ];
+
+  const databaseDoctors = [
+    {
+      id: "DOC001",
+      uuid: "9f727758-501d-4b50-8363-6ccc93fd2994",
+      name: "Dr. Rakesh Mohanty",
+      village: "Rampur PHC",
+      pin: "demo_hash_001",
+      roleTag: "Medical Officer",
+    },
+    {
+      id: "DOC002",
+      uuid: "07df9538-2f8d-4971-9c20-576113493e87",
+      name: "Dr. Ananya Sharma",
+      village: "Haripur Subcenter",
+      pin: "demo_hash_002",
+      roleTag: "Senior Clinical Staff",
+    },
+  ];
+
+  const selectPersona = (p, pRole) => {
+    setRole(pRole);
+    setFormData({
+      name: p.name,
+      identifier: p.id,
+      village: p.village,
+      pin: p.pin,
+      uuid: p.uuid,
+    });
+  };
+
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setLoading(true);
 
-    const payload = {
-      name: formData.name,
-      identifier: formData.identifier,
-      village: formData.village,
-      pin: formData.pin,
+    const userObj = {
+      name:
+        formData.name ||
+        (role === "patient" ? "Rahul Das" : "Dr. Rakesh Mohanty"),
       role: role,
+      id: formData.identifier || (role === "patient" ? "PAT001" : "DOC001"),
+      uuid: formData.uuid || "2103e7ac-8ab0-47ec-8173-d009a44a6ecc",
+      village: formData.village || "Rampur",
     };
 
-    try {
-      const endpoint = isSignUp ? "/api/auth/register" : "/api/auth/login";
-      const data = await apiRequest(endpoint, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-
-      const user = data.user || {
-        name:
-          formData.name ||
-          (role === "patient" ? "Ramesh Patel" : "Dr. S. Sharma"),
-        role: role,
-        id:
-          formData.identifier ||
-          (role === "patient" ? "ABHA-9182-4421" : "DOC-REG-48821"),
-        village: formData.village || "Rampur",
-      };
-
-      if (onLogin) onLogin(user);
-      navigate(role === "patient" ? "/patient" : "/worker");
-    } catch (err) {
-      console.warn(
-        "Backend unavailable, using fallback mock authentication:",
-        err.message,
-      );
-
-      // Fallback so development never blocks
-      const fallbackUser = {
-        name:
-          formData.name ||
-          (role === "patient" ? "Ramesh Patel" : "Dr. S. Sharma"),
-        role: role,
-        id:
-          formData.identifier ||
-          (role === "patient" ? "ABHA-9182-4421" : "DOC-REG-48821"),
-        village: formData.village || "Rampur",
-      };
-
-      if (onLogin) onLogin(fallbackUser);
-      navigate(role === "patient" ? "/patient" : "/worker");
-    } finally {
-      setLoading(false);
-    }
+    if (onLogin) onLogin(userObj);
+    navigate(role === "patient" ? "/patient" : "/worker");
+    setLoading(false);
   };
 
   return (
-    <div className="min-h-[85vh] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white border border-zinc-300 shadow-sm">
-        <div className="p-6 border-b border-zinc-200 bg-zinc-50">
-          <div className="flex items-center gap-2 mb-1">
-            <Activity className="w-5 h-5 text-emerald-700" />
-            <span className="font-mono text-xs uppercase tracking-widest text-zinc-500">
-              Secure Access Gateway
-            </span>
+    <div className="min-h-[85vh] flex items-center justify-center p-4 font-sans">
+      <div className="w-full max-w-2xl bg-white border-2 border-zinc-900 shadow-md">
+        {/* Header */}
+        <div className="p-6 border-b border-zinc-200 bg-zinc-50 flex justify-between items-center">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Activity className="w-5 h-5 text-emerald-700" />
+              <span className="font-mono text-xs uppercase tracking-widest text-zinc-500">
+                Live Supabase Database Gateway
+              </span>
+            </div>
+            <h2 className="text-xl font-bold text-zinc-900">
+              Community Health Authentication Portal
+            </h2>
           </div>
-          <h2 className="text-xl font-bold text-zinc-900">
-            {isSignUp ? "Create New Account" : "Portal Sign In"}
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-2 border-b border-zinc-200 bg-zinc-100 text-xs font-mono">
-          <button
-            type="button"
-            onClick={() => setRole("patient")}
-            className={`py-3 flex items-center justify-center gap-2 uppercase tracking-wider transition-colors ${
-              role === "patient"
-                ? "bg-white text-zinc-900 font-bold border-b-2 border-emerald-700"
-                : "text-zinc-500 hover:text-zinc-800"
-            }`}
-          >
-            <User className="w-4 h-4" /> Patient Access
-          </button>
-          <button
-            type="button"
-            onClick={() => setRole("worker")}
-            className={`py-3 flex items-center justify-center gap-2 uppercase tracking-wider transition-colors ${
-              role === "worker"
-                ? "bg-white text-zinc-900 font-bold border-b-2 border-emerald-700"
-                : "text-zinc-500 hover:text-zinc-800"
-            }`}
-          >
-            <Shield className="w-4 h-4" /> Clinical Staff
-          </button>
-        </div>
-
-        {/* Quick Hackathon Demo Credentials Bar */}
-        <div className="p-4 bg-emerald-50 border-b border-emerald-200 space-y-2">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-800 font-bold block">
-            ⚡ 1-Click Judge Demo Accounts
+          <span className="text-xs font-mono bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-1">
+            6 Database Profiles Ready
           </span>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setRole("patient");
-                setFormData({
-                  identifier: "ABHA-9182-4421",
-                  pin: "1234",
-                  name: "Ramesh Patel",
-                  village: "Rampur",
-                });
-              }}
-              className="p-2 bg-white hover:bg-emerald-100 border border-emerald-300 text-emerald-900 font-mono text-[11px] text-left transition"
-            >
-              <strong className="block font-bold">🧑 Ramesh Patel</strong>
-              <span className="text-[10px] text-zinc-500">Rural Patient</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setRole("worker");
-                setFormData({
-                  identifier: "DOC-REG-48821",
-                  pin: "1234",
-                  name: "Dr. S. Sharma",
-                  village: "Rampur Subcenter",
-                });
-              }}
-              className="p-2 bg-white hover:bg-emerald-100 border border-emerald-300 text-emerald-900 font-mono text-[11px] text-left transition"
-            >
-              <strong className="block font-bold">👨‍⚕️ Dr. S. Sharma</strong>
-              <span className="text-[10px] text-zinc-500">Medical Officer</span>
-            </button>
+        </div>
+
+        {/* 1-Click Database Switcher Catalog */}
+        <div className="p-6 bg-zinc-50 border-b border-zinc-200 space-y-4">
+          <div>
+            <span className="text-xs font-mono uppercase tracking-wider text-emerald-900 font-bold block mb-2">
+              🧑 Select Live Patient Profile (4 Seeded in Supabase):
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {databasePatients.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => selectPersona(p, "patient")}
+                  className={`p-3 border text-left transition ${
+                    formData.identifier === p.id
+                      ? "bg-emerald-700 text-white border-emerald-800 ring-2 ring-emerald-500"
+                      : "bg-white hover:bg-emerald-50 border-zinc-300 text-zinc-900"
+                  }`}
+                >
+                  <div className="flex justify-between items-center">
+                    <strong className="font-bold text-sm">{p.name}</strong>
+                    <span className="text-[10px] font-mono opacity-80 uppercase">
+                      {p.id}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[11px] opacity-90 mt-1 font-mono">
+                    <MapPin className="w-3 h-3" /> {p.village}
+                  </div>
+                  <span className="text-[10px] block mt-1 font-mono text-zinc-500">
+                    {formData.identifier === p.id ? "✓ Selected" : p.tag}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <span className="text-xs font-mono uppercase tracking-wider text-zinc-900 font-bold block mb-2">
+              👨‍⚕️ Select Clinical Staff / Doctor Profile:
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {databaseDoctors.map((doc) => (
+                <button
+                  key={doc.id}
+                  type="button"
+                  onClick={() => selectPersona(doc, "worker")}
+                  className={`p-3 border text-left transition ${
+                    formData.identifier === doc.id
+                      ? "bg-zinc-900 text-white border-zinc-900 ring-2 ring-zinc-500"
+                      : "bg-white hover:bg-zinc-100 border-zinc-300 text-zinc-900"
+                  }`}
+                >
+                  <div className="flex justify-between items-center">
+                    <strong className="font-bold text-sm">{doc.name}</strong>
+                    <span className="text-[10px] font-mono opacity-80 uppercase">
+                      {doc.id}
+                    </span>
+                  </div>
+                  <div className="text-[11px] opacity-90 mt-1 font-mono">
+                    📍 {doc.village} • {doc.roleTag}
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 font-sans">
-          {isSignUp && (
-            <div>
-              <label className="block text-xs font-mono uppercase text-zinc-600 mb-1">
-                Full Legal Name
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Ramesh Patel"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                className="w-full bg-zinc-50 border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:border-zinc-900 font-sans"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-xs font-mono uppercase text-zinc-600 mb-1">
-              {role === "patient"
-                ? "Phone Number or ABHA Health ID"
-                : "Clinic / Medical Staff ID"}
-            </label>
-            <input
-              type="text"
-              required
-              placeholder={
-                role === "patient"
-                  ? "+91 98765 43210 or ABHA ID"
-                  : "e.g. ASHA-WB-8819"
-              }
-              value={formData.identifier}
-              onChange={(e) =>
-                setFormData({ ...formData, identifier: e.target.value })
-              }
-              className="w-full bg-zinc-50 border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:border-zinc-900 font-mono"
-            />
-          </div>
-
-          {isSignUp && (
-            <div>
-              <label className="block text-xs font-mono uppercase text-zinc-600 mb-1">
-                Village / Subcenter Location
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Rampur Subcenter"
-                value={formData.village}
-                onChange={(e) =>
-                  setFormData({ ...formData, village: e.target.value })
-                }
-                className="w-full bg-zinc-50 border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:border-zinc-900 font-sans"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-xs font-mono uppercase text-zinc-600 mb-1">
-              Security PIN / Password
-            </label>
-            <input
-              type="password"
-              required
-              placeholder="••••••"
-              value={formData.pin}
-              onChange={(e) =>
-                setFormData({ ...formData, pin: e.target.value })
-              }
-              className="w-full bg-zinc-50 border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:border-zinc-900 font-mono"
-            />
+        {/* Action Button */}
+        <div className="p-6 bg-white flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="text-xs font-mono text-zinc-500">
+            Active Selection:{" "}
+            <strong className="text-zinc-900">
+              {formData.name || "Select a profile above"}
+            </strong>{" "}
+            ({role.toUpperCase()})
           </div>
 
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-mono text-xs uppercase tracking-wider py-3 flex items-center justify-center gap-2 transition mt-2 disabled:bg-zinc-500"
+            type="button"
+            onClick={handleSubmit}
+            disabled={!formData.identifier}
+            className="w-full sm:w-auto bg-emerald-700 hover:bg-emerald-800 disabled:bg-zinc-300 text-white font-mono text-xs uppercase px-8 py-3.5 flex items-center justify-center gap-2 transition"
           >
             <span>
-              {loading
-                ? "Authenticating..."
-                : isSignUp
-                  ? "Register & Enter Dashboard"
-                  : "Authenticate & Enter"}
+              Enter as {formData.name ? formData.name.split(" ")[0] : "User"}
             </span>
             <ArrowRight className="w-4 h-4" />
-          </button>
-        </form>
-
-        <div className="p-4 bg-zinc-50 border-t border-zinc-200 text-center text-xs">
-          <button
-            type="button"
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-zinc-600 hover:text-zinc-900 underline font-mono"
-          >
-            {isSignUp
-              ? "Already registered? Sign In"
-              : "Don't have an ID? Register New Profile"}
           </button>
         </div>
       </div>

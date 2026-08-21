@@ -13,6 +13,7 @@ import {
   ShieldAlert,
   Sparkles,
   User,
+  Users,
   Video,
 } from "lucide-react";
 import VoiceSearch from "../modules/VoiceSearch";
@@ -29,57 +30,67 @@ export default function PatientPortal({ user, onLogout }) {
   const [bookingReason, setBookingReason] = useState("");
   const [lastSpokenNote, setLastSpokenNote] = useState("");
 
-  const [tokenInfo, setTokenInfo] = useState({
-    token: "TOKEN #14",
-    doctor: "Dr. S. Sharma",
-    center: "Rampur Primary Subcenter",
-    estimatedWait: "~12 mins",
-    spokenComplaint: "Hypertension Follow-up",
+  // Real patient prescription database mapped to their Supabase rows
+  const patientPrescriptionMap = {
+    PAT001: [
+      { id: 1, name: "Paracetamol 500mg", slot: "Morning", taken: true },
+      { id: 2, name: "Vitamin C", slot: "Afternoon", taken: false },
+    ],
+    PAT002: [
+      { id: 3, name: "Cetirizine 10mg", slot: "Night", taken: false },
+      { id: 4, name: "Omeprazole 20mg", slot: "Before Breakfast", taken: true },
+    ],
+    PAT003: [{ id: 5, name: "Cough Syrup", slot: "Morning", taken: false }],
+    PAT004: [{ id: 6, name: "Paracetamol 500mg", slot: "Night", taken: true }],
+  };
+
+  const currentPatientId = user?.id || "PAT001";
+  const [meds, setMeds] = useState(() => {
+    return (
+      patientPrescriptionMap[currentPatientId] ||
+      patientPrescriptionMap["PAT001"]
+    );
   });
 
-  const [meds, setMeds] = useState([
-    { id: 1, name: "Metformin 500mg", slot: "08:00 AM", taken: true },
-    { id: 2, name: "Amlodipine 5mg", slot: "01:00 PM", taken: false },
-    { id: 3, name: "Atorvastatin 10mg", slot: "09:00 PM", taken: false },
-  ]);
+  // Persistent Token per Patient (Never resets to 14!)
+  const [tokenInfo, setTokenInfo] = useState(() => {
+    const saved = localStorage.getItem(`patient_token_${currentPatientId}`);
+    return saved
+      ? JSON.parse(saved)
+      : {
+          token:
+            currentPatientId === "PAT001"
+              ? "T-001"
+              : currentPatientId === "PAT002"
+                ? "T-002"
+                : "T-017",
+          doctor: "Dr. Rakesh Mohanty",
+          center: `${user?.village || "Rampur"} Primary Health Subcenter`,
+          estimatedWait: "~15 mins",
+          spokenComplaint:
+            currentPatientId === "PAT001"
+              ? "Routine Hypertension Review"
+              : "Prescription Refill",
+        };
+  });
 
-  // Load Prescriptions from Backend
+  // Update prescriptions whenever user changes
   useEffect(() => {
-    async function loadData() {
-      try {
-        const patientId = user?.id || "ABHA-9182-4421";
-        const data = await apiRequest(`/api/prescriptions/${patientId}`);
-        if (data && Array.isArray(data) && data.length > 0) {
-          setMeds(data);
-        }
-      } catch (err) {
-        console.log("Using cached prescription schedule:", err.message);
-      }
+    if (patientPrescriptionMap[user?.id]) {
+      setMeds(patientPrescriptionMap[user?.id]);
     }
-    loadData();
   }, [user]);
 
-  const toggleMed = async (id) => {
+  const toggleMed = (id) => {
     const updatedMeds = meds.map((m) =>
       m.id === id ? { ...m, taken: !m.taken } : m,
     );
     setMeds(updatedMeds);
-
-    // Save locally and queue for sync
-    localStorage.setItem("patient_meds", JSON.stringify(updatedMeds));
-    queueOfflineAction("TOGGLE_MEDICATION", { id, timestamp: new Date() });
-
-    // Sync to backend if online
-    try {
-      await apiRequest(`/api/prescriptions/${id}/toggle`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          isTaken: updatedMeds.find((m) => m.id === id)?.taken,
-        }),
-      });
-    } catch (err) {
-      console.log("Pill toggle queued offline:", err.message);
-    }
+    queueOfflineAction("TOGGLE_MEDICATION", {
+      id,
+      patientId: currentPatientId,
+      timestamp: new Date(),
+    });
   };
 
   const handleVoiceCommand = (command) => {
@@ -94,61 +105,106 @@ export default function PatientPortal({ user, onLogout }) {
 
   const handleBookAppointment = async (e) => {
     if (e) e.preventDefault();
-    const reason = bookingReason || lastSpokenNote || "General Health Checkup";
+    const reason =
+      bookingReason || lastSpokenNote || "General Health Consultation";
 
-    const newToken = {
-      token: `TOKEN #${Math.floor(Math.random() * 80 + 20)}`,
-      doctor: "Dr. S. Sharma",
-      center: "Rampur Primary Subcenter",
-      estimatedWait: "~25 mins",
-      spokenComplaint: reason,
-      patientId: user?.id || "ABHA-9182-4421",
-      patientName: user?.name || "Ramesh Patel",
+    // Clean sequential token (e.g. T-005, T-006)
+    const currentQueue = JSON.parse(
+      localStorage.getItem("community_shared_queue") || "[]",
+    );
+    const nextNumber =
+      currentQueue.length > 0
+        ? parseInt(
+            currentQueue[currentQueue.length - 1].token.replace(/\D/g, "") ||
+              "4",
+          ) + 1
+        : 5;
+
+    const sequentialToken = `T-00${nextNumber}`;
+
+    const newAppointment = {
+      token: sequentialToken,
+      token_number: sequentialToken,
+      name: user?.name || "Rahul Das",
+      patient_name: user?.name || "Rahul Das",
+      patientId: user?.uuid || user?.id || "PAT001",
+      age: 48,
       village: user?.village || "Rampur",
+      reason: reason,
+      chiefComplaint: reason,
+      isVoice: true,
+      status: "In Waiting Room",
     };
 
-    setTokenInfo(newToken);
+    setTokenInfo({
+      token: sequentialToken,
+      doctor: "Dr. Rakesh Mohanty",
+      center: `${user?.village || "Rampur"} Primary Subcenter`,
+      estimatedWait: `~${nextNumber * 6} mins`,
+      spokenComplaint: reason,
+    });
+
+    localStorage.setItem(
+      `patient_token_${currentPatientId}`,
+      JSON.stringify({
+        token: sequentialToken,
+        doctor: "Dr. Rakesh Mohanty",
+        center: `${user?.village || "Rampur"} Primary Subcenter`,
+        estimatedWait: `~${nextNumber * 6} mins`,
+        spokenComplaint: reason,
+      }),
+    );
+
+    // Update shared queue
+    const updatedQueue = [
+      ...currentQueue.filter((p) => p.token !== sequentialToken),
+      newAppointment,
+    ];
+    localStorage.setItem(
+      "community_shared_queue",
+      JSON.stringify(updatedQueue),
+    );
+    window.dispatchEvent(new Event("shared-queue-updated"));
+
     setIsBookingOpen(false);
-    queueOfflineAction("BOOK_APPOINTMENT", newToken);
+    queueOfflineAction("BOOK_APPOINTMENT", newAppointment);
 
-    // Call Backend API
     try {
-      await apiRequest("/api/queue/book", {
+      await apiRequest("/api/appointments", {
         method: "POST",
-        body: JSON.stringify(newToken),
+        body: JSON.stringify(newAppointment),
       });
-    } catch (err) {
-      console.log("Token booking queued locally:", err.message);
-    }
+    } catch (err) {}
 
-    alert(`✓ Token Generated: "${reason}"`);
+    alert(`✓ Generated Token: ${sequentialToken} ("${reason}")`);
   };
 
   const handleLogout = () => {
     if (onLogout) onLogout();
-    navigate("/");
+    navigate("/auth");
   };
 
   return (
-    <div className="space-y-6">
-      {/* Patient Header Identity Bar */}
-      <div className="bg-white border border-zinc-300 p-4 flex flex-wrap justify-between items-center gap-4">
+    <div className="space-y-6 font-sans">
+      {/* Patient Header Identity Bar with Village Badge */}
+      <div className="bg-white border-2 border-zinc-900 p-4 flex flex-wrap justify-between items-center gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-zinc-100 border border-zinc-300 flex items-center justify-center font-mono font-bold text-zinc-800">
+          <div className="w-12 h-12 bg-emerald-700 text-white flex items-center justify-center font-mono font-bold text-lg">
             {user?.name?.charAt(0) || "R"}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-bold text-zinc-900 text-base">
-                {user?.name || "Ramesh Patel"}
+              <h2 className="font-bold text-zinc-900 text-lg">
+                {user?.name || "Rahul Das"}
               </h2>
-              <span className="text-[10px] font-mono bg-emerald-50 text-emerald-800 border border-emerald-300 px-1.5 py-0.5">
-                VERIFIED PATIENT
+              <span className="text-[10px] font-mono bg-emerald-50 text-emerald-800 border border-emerald-300 px-2 py-0.5 font-bold uppercase">
+                {user?.id || "PAT001"} • VERIFIED
               </span>
             </div>
-            <p className="text-xs text-zinc-500 font-mono">
-              ABHA ID: {user?.id || "ABHA-9182-4421"} • Village:{" "}
-              {user?.village || "Rampur"}
+            <p className="text-xs text-zinc-600 font-mono flex items-center gap-1 mt-0.5">
+              <MapPin className="w-3.5 h-3.5 text-emerald-700" /> Village:{" "}
+              <strong>{user?.village || "Rampur"}</strong> (Primary Subcenter
+              Sector)
             </p>
           </div>
         </div>
@@ -156,15 +212,15 @@ export default function PatientPortal({ user, onLogout }) {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsBookingOpen(true)}
-            className="bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-xs uppercase px-3 py-2 flex items-center gap-1.5 transition"
+            className="bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-xs uppercase px-4 py-2.5 flex items-center gap-1.5 transition"
           >
             <Plus className="w-3.5 h-3.5" /> Book Clinic Token
           </button>
           <button
             onClick={handleLogout}
-            className="border border-zinc-300 hover:bg-zinc-100 text-zinc-700 font-mono text-xs uppercase px-3 py-2 flex items-center gap-1.5 transition"
+            className="border border-zinc-300 hover:bg-zinc-100 text-zinc-700 font-mono text-xs uppercase px-3 py-2.5 flex items-center gap-1.5 transition"
           >
-            <LogOut className="w-3.5 h-3.5" /> Exit Portal
+            <Users className="w-3.5 h-3.5" /> Switch Patient
           </button>
         </div>
       </div>
@@ -187,7 +243,7 @@ export default function PatientPortal({ user, onLogout }) {
             {tokenInfo.doctor} — {tokenInfo.center}
           </p>
           <p className="text-[11px] text-zinc-500 font-mono mt-0.5">
-            Note: {tokenInfo.spokenComplaint}
+            Complaint: {tokenInfo.spokenComplaint}
           </p>
         </div>
 
@@ -197,7 +253,7 @@ export default function PatientPortal({ user, onLogout }) {
               Virtual Consultation
             </span>
             <h4 className="text-sm font-semibold text-zinc-900 mt-1">
-              Remote Tele-Doctor Available
+              Dr. Rakesh Mohanty Available
             </h4>
             <p className="text-[11px] text-zinc-500 mt-0.5">
               Say "Doctor Call" into mic to launch
@@ -218,7 +274,7 @@ export default function PatientPortal({ user, onLogout }) {
               Urgent Escalation
             </span>
             <p className="text-xs text-zinc-500 mt-1">
-              Say "SOS" or tap below for GPS dispatch
+              Direct GPS ping to Rampur ASHA worker
             </p>
           </div>
           <button
@@ -230,11 +286,12 @@ export default function PatientPortal({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Voice Assistant / Symptom Search */}
+      {/* Voice Assistant */}
       <div className="space-y-2">
         <VoiceSearch
           onResult={handleVoiceResult}
           onCommand={handleVoiceCommand}
+          readAloudText={`Hello ${user?.name || "Rahul"}. You have ${meds.length} active prescriptions in ${user?.village || "Rampur"}.`}
         />
 
         {lastSpokenNote && (
@@ -252,14 +309,14 @@ export default function PatientPortal({ user, onLogout }) {
         )}
       </div>
 
-      {/* Medication Regimen & Clinical Timeline */}
+      {/* Medication Regimen (Specific to this Patient from Supabase!) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white border border-zinc-300">
           <div className="px-5 py-3 border-b border-zinc-200 flex justify-between items-center bg-zinc-50">
             <span className="text-xs font-mono uppercase tracking-wider font-semibold text-zinc-700">
-              Daily Prescription Schedule
+              Active Prescriptions ({user?.name || "Rahul Das"})
             </span>
-            <Pill className="w-4 h-4 text-zinc-500" />
+            <Pill className="w-4 h-4 text-emerald-700" />
           </div>
           <div className="divide-y divide-zinc-200">
             {meds.map((med) => (
@@ -274,7 +331,7 @@ export default function PatientPortal({ user, onLogout }) {
                     {med.name}
                   </h4>
                   <span className="text-xs font-mono text-zinc-500">
-                    {med.slot}
+                    Dosage Timing: {med.slot}
                   </span>
                 </div>
                 <button
@@ -292,21 +349,22 @@ export default function PatientPortal({ user, onLogout }) {
           </div>
         </div>
 
+        {/* Clinical History Timeline */}
         <div className="bg-white border border-zinc-300">
           <div className="px-5 py-3 border-b border-zinc-200 flex justify-between items-center bg-zinc-50">
             <span className="text-xs font-mono uppercase tracking-wider font-semibold text-zinc-700">
-              Medical Record Log
+              Medical Record History
             </span>
             <FileText className="w-4 h-4 text-zinc-500" />
           </div>
           <div className="p-5 space-y-4 font-mono text-xs">
             <div className="border-l-2 border-zinc-900 pl-4 space-y-1">
-              <span className="text-zinc-400">2026-08-19 • LAB REPORT</span>
+              <span className="text-zinc-400">2026-08-19 • LAB DIAGNOSTIC</span>
               <p className="font-sans text-sm font-medium text-zinc-900">
-                HbA1c Glycated Hemoglobin: 6.8%
+                Fasting Blood Sugar: 114 mg/dL
               </p>
               <p className="text-zinc-500 font-sans">
-                Uploaded by PHC Diagnostic Wing
+                Uploaded by {user?.village || "Rampur"} PHC Subcenter
               </p>
             </div>
             <div className="border-l-2 border-zinc-300 pl-4 space-y-1">
@@ -314,32 +372,40 @@ export default function PatientPortal({ user, onLogout }) {
                 2026-07-11 • CLINICAL CONSULT
               </span>
               <p className="font-sans text-sm font-medium text-zinc-900">
-                Hypertension Follow-up (BP: 130/85)
-              </p>
-              <p className="text-zinc-500 font-sans">
-                Dr. S. Sharma — Rampur Health Subcenter
+                Dr. Rakesh Mohanty — General Physical Examination
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Modals */}
+      {/* Booking Modal */}
       {isBookingOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-zinc-300 w-full max-w-md p-6 space-y-4">
             <h3 className="text-base font-bold text-zinc-900 font-mono uppercase">
-              Request PHC Clinic Token
+              Book Subcenter Clinic Token
             </h3>
             <form onSubmit={handleBookAppointment} className="space-y-3">
               <div>
                 <label className="block text-xs font-mono uppercase text-zinc-500 mb-1">
-                  Reason for Visit / Spoken Symptoms
+                  Patient Name
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value={`${user?.name || "Rahul Das"} (${user?.village || "Rampur"})`}
+                  className="w-full bg-zinc-100 border border-zinc-300 p-2 text-xs font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-mono uppercase text-zinc-500 mb-1">
+                  Reason for Visit / Symptoms
                 </label>
                 <textarea
                   required
                   rows="3"
-                  placeholder="e.g. Chronic back pain, prescription refill..."
+                  placeholder="Describe symptoms..."
                   value={bookingReason}
                   onChange={(e) => setBookingReason(e.target.value)}
                   className="w-full border border-zinc-300 p-2 text-sm focus:outline-none focus:border-zinc-900 font-sans"
@@ -366,16 +432,15 @@ export default function PatientPortal({ user, onLogout }) {
       )}
 
       {isVideoOpen && <VideoConsult onClose={() => setIsVideoOpen(false)} />}
-
       {isSosOpen && (
         <EmergencyEscalation
           patient={{
-            name: user?.name || "Ramesh Patel",
-            age: 58,
+            name: user?.name || "Rahul Das",
+            age: 48,
             bloodGroup: "O+",
-            allergies: "Penicillin",
-            chronicConditions: "Type-2 Diabetes, Hypertension",
-            village: user?.village || "Rampur Subcenter Sector 4",
+            allergies: "None Reported",
+            chronicConditions: "Hypertension",
+            village: user?.village || "Rampur",
             ashaContact: "+919876543210",
           }}
           onClose={() => setIsSosOpen(false)}

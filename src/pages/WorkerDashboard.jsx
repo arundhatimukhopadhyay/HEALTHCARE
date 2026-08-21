@@ -2,7 +2,9 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Activity,
+  Filter,
   LogOut,
+  MapPin,
   Mic,
   Plus,
   Search,
@@ -21,57 +23,117 @@ export default function WorkerDashboard({ user, onLogout }) {
   const [activeCall, setActiveCall] = useState(null);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [villageFilter, setVillageFilter] = useState("ALL");
 
-  const [patients, setPatients] = useState([
+  const defaultQueue = [
     {
-      token: "T-014",
-      name: "Ramesh Patel",
-      age: 58,
-      village: "Kalyanpur",
-      chiefComplaint: "Severe knee pain and joint stiffness since 3 days",
+      token: "T-001",
+      name: "Rahul Das",
+      age: 48,
+      village: "Rampur",
+      chiefComplaint: "Hypertension Follow-up",
       isVoice: true,
       status: "In Waiting Room",
     },
     {
-      token: "T-015",
-      name: "Sunita Devi",
-      age: 42,
-      village: "Rampur",
-      chiefComplaint: "Insulin Dosage Check & Morning Dizziness",
-      isVoice: false,
+      token: "T-002",
+      name: "Priya Sahu",
+      age: 34,
+      village: "Haripur",
+      chiefComplaint: "Asthma Inhaler Renewal",
+      isVoice: true,
+      status: "In Waiting Room",
+    },
+    {
+      token: "T-003",
+      name: "Amit Behera",
+      age: 62,
+      village: "Gopinathpur",
+      chiefComplaint: "Persistent Dry Cough",
+      isVoice: true,
       status: "Consulting",
     },
     {
-      token: "T-016",
-      name: "Gopal Verma",
-      age: 67,
-      village: "Kalyanpur",
-      chiefComplaint: "Chest tightness after evening walks",
+      token: "T-004",
+      name: "Sneha Rout",
+      age: 29,
+      village: "Nandapur",
+      chiefComplaint: "Post-Op Dressing & Fever",
       isVoice: true,
       status: "Pending",
     },
-  ]);
+  ];
 
+  const [patients, setPatients] = useState(defaultQueue);
   const [newPatient, setNewPatient] = useState({
     name: "",
     age: "",
-    village: "",
+    village: "Rampur",
     chiefComplaint: "",
   });
 
-  // Fetch Live Queue from Backend
-  useEffect(() => {
-    async function fetchQueue() {
-      try {
-        const queueData = await apiRequest("/api/queue");
-        if (queueData && Array.isArray(queueData) && queueData.length > 0) {
-          setPatients(queueData);
-        }
-      } catch (err) {
-        console.log("Using cached clinic queue data:", err.message);
+  // Single-Pass Sync: Fetches once per tick and deduplicates tokens
+  const syncLiveQueue = async () => {
+    try {
+      const queueData = await apiRequest("/api/appointments");
+
+      if (queueData && Array.isArray(queueData) && queueData.length > 0) {
+        const uniqueMap = new Map();
+
+        // 1. Add baseline patients first
+        defaultQueue.forEach((p) => uniqueMap.set(p.token, p));
+
+        // 2. Overlay live Supabase database records
+        queueData.forEach((item, idx) => {
+          const tokenKey = item.token_number || item.token || `T-00${idx + 1}`;
+          uniqueMap.set(tokenKey, {
+            token: tokenKey,
+            name: item.patient_name || item.name || "Rahul Das",
+            age: item.age || 48,
+            village: item.village || "Rampur",
+            chiefComplaint:
+              item.reason || item.chiefComplaint || "Clinical Consultation",
+            isVoice: true,
+            status: item.status || "In Waiting Room",
+          });
+        });
+
+        // 3. Overlay any fresh local appointments
+        const localSaved = JSON.parse(
+          localStorage.getItem("community_shared_queue") || "[]",
+        );
+        localSaved.forEach((local) => {
+          if (local.token) uniqueMap.set(local.token, local);
+        });
+
+        const mergedList = Array.from(uniqueMap.values());
+        setPatients(mergedList);
+        return;
+      }
+    } catch (err) {
+      // Offline fallback
+      const localSaved = localStorage.getItem("community_shared_queue");
+      if (localSaved) {
+        try {
+          setPatients(JSON.parse(localSaved));
+        } catch (e) {}
       }
     }
-    fetchQueue();
+  };
+
+  useEffect(() => {
+    syncLiveQueue();
+
+    const handleStorageChange = () => syncLiveQueue();
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("shared-queue-updated", handleStorageChange);
+    const interval = setInterval(syncLiveQueue, 3000);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("shared-queue-updated", handleStorageChange);
+      clearInterval(interval);
+    };
   }, []);
 
   const playPatientVoiceNote = (complaintText) => {
@@ -82,67 +144,90 @@ export default function WorkerDashboard({ user, onLogout }) {
     window.speechSynthesis.speak(utterance);
   };
 
+  // Reset Queue Button
+  const handleClearQueue = () => {
+    if (window.confirm("Reset queue to baseline 4 patients for the demo?")) {
+      setPatients(defaultQueue);
+      localStorage.setItem(
+        "community_shared_queue",
+        JSON.stringify(defaultQueue),
+      );
+      window.dispatchEvent(new Event("shared-queue-updated"));
+    }
+  };
+
   const handleRegisterPatient = async (e) => {
     e.preventDefault();
     if (!newPatient.name) return;
 
+    const nextNum = patients.length + 1;
+    const tokenTag = `T-00${nextNum}`;
+
     const entry = {
-      token: `T-0${patients.length + 14}`,
+      token: tokenTag,
+      token_number: tokenTag,
       name: newPatient.name,
+      patient_name: newPatient.name,
       age: newPatient.age || "45",
       village: newPatient.village || "Rampur",
-      chiefComplaint: newPatient.chiefComplaint || "General Checkup",
-      isVoice: false,
+      reason: newPatient.chiefComplaint || "Walk-in Checkup",
+      chiefComplaint: newPatient.chiefComplaint || "Walk-in Checkup",
+      isVoice: true,
       status: "In Waiting Room",
     };
 
-    // Optimistic Update
-    setPatients([...patients, entry]);
-    setIsRegisterOpen(false);
-    setNewPatient({ name: "", age: "", village: "", chiefComplaint: "" });
+    const updated = [...patients.filter((p) => p.token !== tokenTag), entry];
+    setPatients(updated);
+    localStorage.setItem("community_shared_queue", JSON.stringify(updated));
+    window.dispatchEvent(new Event("shared-queue-updated"));
 
-    // Call Backend
+    setIsRegisterOpen(false);
+    setNewPatient({ name: "", age: "", village: "Rampur", chiefComplaint: "" });
+
     try {
-      await apiRequest("/api/queue/book", {
+      await apiRequest("/api/appointments", {
         method: "POST",
         body: JSON.stringify(entry),
       });
-    } catch (err) {
-      console.log("Registered locally:", err.message);
-    }
+    } catch (err) {}
   };
 
   const handleLogout = () => {
     if (onLogout) onLogout();
-    navigate("/");
+    navigate("/auth");
   };
 
-  const filteredPatients = patients.filter(
-    (p) =>
+  const filteredPatients = patients.filter((p) => {
+    const matchesSearch =
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.token.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.village.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+      p.village.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesVillage =
+      villageFilter === "ALL" ||
+      p.village.toLowerCase() === villageFilter.toLowerCase();
+    return matchesSearch && matchesVillage;
+  });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 font-sans">
       {/* Staff Header */}
-      <div className="bg-white border border-zinc-300 p-4 flex flex-wrap justify-between items-center gap-4">
+      <div className="bg-white border-2 border-zinc-900 p-4 flex flex-wrap justify-between items-center gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-zinc-900 text-white flex items-center justify-center font-mono font-bold">
-            <Shield className="w-5 h-5 text-emerald-400" />
+          <div className="w-12 h-12 bg-zinc-900 text-white flex items-center justify-center font-mono font-bold text-lg">
+            <Shield className="w-6 h-6 text-emerald-400" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-bold text-zinc-900 text-base">
-                {user?.name || "Dr. S. Sharma (Clinical Staff)"}
+              <h2 className="font-bold text-zinc-900 text-lg">
+                {user?.name || "Dr. Rakesh Mohanty"}
               </h2>
-              <span className="text-[10px] font-mono bg-zinc-900 text-white px-1.5 py-0.5 uppercase">
-                CLINIC ADMIN
+              <span className="text-[10px] font-mono bg-zinc-900 text-white px-2 py-0.5 uppercase font-bold">
+                {user?.id || "DOC001"} • ATTENDING OFFICER
               </span>
             </div>
-            <p className="text-xs text-zinc-500 font-mono">
-              STAFF ID: {user?.id || "DOC-REG-48821"} • Rampur Primary Subcenter
+            <p className="text-xs text-zinc-600 font-mono mt-0.5">
+              Sector: <strong>{user?.village || "Rampur PHC Subcenter"}</strong>{" "}
+              • Odisha District Health Network
             </p>
           </div>
         </div>
@@ -150,15 +235,22 @@ export default function WorkerDashboard({ user, onLogout }) {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsRegisterOpen(true)}
-            className="bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-xs uppercase px-3 py-2 flex items-center gap-1.5 transition"
+            className="bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-xs uppercase px-3.5 py-2.5 flex items-center gap-1.5 transition"
           >
             <Plus className="w-3.5 h-3.5" /> Register Walk-in
           </button>
           <button
-            onClick={handleLogout}
-            className="border border-zinc-300 hover:bg-zinc-100 text-zinc-700 font-mono text-xs uppercase px-3 py-2 flex items-center gap-1.5 transition"
+            onClick={handleClearQueue}
+            className="border border-zinc-300 hover:bg-red-50 hover:text-red-700 text-zinc-600 font-mono text-xs uppercase px-3 py-2.5 transition"
+            title="Reset Queue for Demo"
           >
-            <LogOut className="w-3.5 h-3.5" /> Log Out
+            Reset Queue
+          </button>
+          <button
+            onClick={handleLogout}
+            className="border border-zinc-300 hover:bg-zinc-100 text-zinc-700 font-mono text-xs uppercase px-3 py-2.5 flex items-center gap-1.5 transition"
+          >
+            <Users className="w-3.5 h-3.5" /> Switch Doctor
           </button>
         </div>
       </div>
@@ -167,7 +259,7 @@ export default function WorkerDashboard({ user, onLogout }) {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-px bg-zinc-300 border border-zinc-300">
         <div className="bg-white p-4">
           <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
-            Live Waiting Queue
+            Active Waiting Queue
           </span>
           <p className="text-2xl font-mono font-bold text-zinc-900 mt-1">
             {patients.length} Patients
@@ -175,10 +267,10 @@ export default function WorkerDashboard({ user, onLogout }) {
         </div>
         <div className="bg-white p-4">
           <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
-            Completed Consults
+            Completed Today
           </span>
           <p className="text-2xl font-mono font-bold text-emerald-700 mt-1">
-            19 Today
+            19 Consults
           </p>
         </div>
         <div className="bg-white p-4">
@@ -186,12 +278,12 @@ export default function WorkerDashboard({ user, onLogout }) {
             Voice-Transcribed Triage
           </span>
           <p className="text-2xl font-mono font-bold text-emerald-600 mt-1">
-            02 Recorded
+            {patients.filter((p) => p.isVoice).length} Recorded
           </p>
         </div>
         <div className="bg-white p-4">
           <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
-            Subcenter Sync
+            Supabase Cloud Sync
           </span>
           <p className="text-2xl font-mono font-bold text-cyan-700 mt-1">
             100% Online
@@ -207,17 +299,30 @@ export default function WorkerDashboard({ user, onLogout }) {
               Triage & Queue Desk
             </h3>
             <p className="text-xs text-zinc-500">
-              Rampur Health & Wellness Subcenter
+              District Health Subcenter Live Ledger
             </p>
           </div>
 
-          <div className="w-full sm:w-64">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <select
+              value={villageFilter}
+              onChange={(e) => setVillageFilter(e.target.value)}
+              className="border border-zinc-300 bg-white px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-zinc-900"
+            >
+              <option value="ALL">📍 All Villages ({patients.length})</option>
+              <option value="Rampur">Rampur</option>
+              <option value="Haripur">Haripur</option>
+              <option value="Gopinathpur">Gopinathpur</option>
+              <option value="Nandapur">Nandapur</option>
+              <option value="Balipatna">Balipatna</option>
+            </select>
+
             <input
               type="text"
-              placeholder="Search token, name, village..."
+              placeholder="Search token, patient..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-sans focus:outline-none focus:border-zinc-900"
+              className="w-full sm:w-48 border border-zinc-300 bg-white px-3 py-1.5 text-xs font-sans focus:outline-none focus:border-zinc-900"
             />
           </div>
         </div>
@@ -227,7 +332,7 @@ export default function WorkerDashboard({ user, onLogout }) {
             <thead className="bg-zinc-100 text-zinc-600 font-mono uppercase border-b border-zinc-200">
               <tr>
                 <th className="py-2.5 px-4">Token</th>
-                <th className="py-2.5 px-4">Patient Details</th>
+                <th className="py-2.5 px-4">Patient Name</th>
                 <th className="py-2.5 px-4">Village</th>
                 <th className="py-2.5 px-4">Chief Complaint / Triage Note</th>
                 <th className="py-2.5 px-4">Status</th>
@@ -249,11 +354,15 @@ export default function WorkerDashboard({ user, onLogout }) {
                       {p.age} yrs
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-zinc-600">{p.village}</td>
+                  <td className="py-3 px-4 text-zinc-600 font-mono">
+                    📍 {p.village}
+                  </td>
 
                   <td className="py-3 px-4 text-zinc-800">
                     <div className="flex items-center gap-2">
-                      <span>{p.chiefComplaint}</span>
+                      <strong className="font-medium text-zinc-900">
+                        {p.chiefComplaint}
+                      </strong>
                       {p.isVoice && (
                         <button
                           onClick={() => playPatientVoiceNote(p.chiefComplaint)}
@@ -280,7 +389,7 @@ export default function WorkerDashboard({ user, onLogout }) {
                       <Video className="w-3 h-3" /> Teleconsult
                     </button>
                     <button className="px-2.5 py-1 border border-zinc-300 hover:bg-zinc-100 text-zinc-700 font-mono text-[11px] uppercase transition">
-                      View Chart
+                      Chart
                     </button>
                   </td>
                 </tr>
@@ -290,7 +399,7 @@ export default function WorkerDashboard({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Register Modal */}
+      {/* Walk-in Modal */}
       {isRegisterOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-zinc-300 w-full max-w-md p-6 space-y-4">
@@ -310,7 +419,7 @@ export default function WorkerDashboard({ user, onLogout }) {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Maya Sharma"
+                  placeholder="e.g. Minati Behera"
                   value={newPatient.name}
                   onChange={(e) =>
                     setNewPatient({ ...newPatient, name: e.target.value })
@@ -337,15 +446,19 @@ export default function WorkerDashboard({ user, onLogout }) {
                   <label className="block text-xs font-mono uppercase text-zinc-500 mb-1">
                     Village
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Rampur"
+                  <select
                     value={newPatient.village}
                     onChange={(e) =>
                       setNewPatient({ ...newPatient, village: e.target.value })
                     }
-                    className="w-full border border-zinc-300 p-2 text-sm font-sans"
-                  />
+                    className="w-full border border-zinc-300 p-2 text-xs font-mono"
+                  >
+                    <option value="Rampur">Rampur</option>
+                    <option value="Haripur">Haripur</option>
+                    <option value="Gopinathpur">Gopinathpur</option>
+                    <option value="Nandapur">Nandapur</option>
+                    <option value="Balipatna">Balipatna</option>
+                  </select>
                 </div>
               </div>
               <div>
@@ -380,7 +493,7 @@ export default function WorkerDashboard({ user, onLogout }) {
       {activeCall && (
         <VideoConsult
           roomName={`Consultation-${activeCall}`}
-          userName="ASHA Worker / Doctor"
+          userName={user?.name || "Dr. Rakesh Mohanty"}
           onClose={() => setActiveCall(null)}
         />
       )}
