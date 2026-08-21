@@ -1,23 +1,25 @@
 import React, { useState } from "react";
-import { Mic, MicOff, Volume2, CheckCircle2, Globe } from "lucide-react";
+import {
+  Mic,
+  MicOff,
+  Volume2,
+  CheckCircle2,
+  Globe,
+  Sparkles,
+} from "lucide-react";
 
-/**
- * HACQUIRE TRADABLE ASSET: Accessible Rural Voice & Audio Companion
- * Features:
- * 1. Speech-to-Text (STT) for illiterate patient symptom logging.
- * 2. Text-to-Speech (TTS) to read prescriptions aloud.
- * 3. Dynamic Indian Language Accent switching (Hindi/English).
- */
 export default function VoiceSearch({
   onResult,
+  onCommand,
   readAloudText = "You have 3 medications today. Your next pill is Metformin at 8:00 AM.",
 }) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
-  const [langMode, setLangMode] = useState("en-IN"); // 'hi-IN' or 'en-IN'
+  const [langMode, setLangMode] = useState("en-IN");
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [detectedCommand, setDetectedCommand] = useState(null);
 
-  // 1. Speech-to-Text (Patient speaks symptoms)
+  // 1. Speech-to-Text & Intelligent Action Trigger
   const toggleListening = () => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -37,13 +39,36 @@ export default function VoiceSearch({
     recognition.lang = langMode;
     recognition.interimResults = false;
 
-    recognition.onstart = () => setIsListening(true);
+    recognition.onstart = () => {
+      setIsListening(true);
+      setDetectedCommand(null);
+    };
     recognition.onend = () => setIsListening(false);
 
     recognition.onresult = (event) => {
       const text = event.results[0][0].transcript;
       setTranscript(text);
       if (onResult) onResult(text);
+
+      // Simple Voice Command Parser
+      const lower = text.toLowerCase();
+      if (
+        lower.includes("doctor") ||
+        lower.includes("call") ||
+        lower.includes("वीडियो") ||
+        lower.includes("डॉक्टर")
+      ) {
+        setDetectedCommand("video_call");
+        if (onCommand) onCommand("video_call");
+      } else if (
+        lower.includes("sos") ||
+        lower.includes("emergency") ||
+        lower.includes("मदद") ||
+        lower.includes("खतरा")
+      ) {
+        setDetectedCommand("emergency_sos");
+        if (onCommand) onCommand("emergency_sos");
+      }
     };
 
     recognition.start();
@@ -51,10 +76,7 @@ export default function VoiceSearch({
 
   // 2. Text-to-Speech (App talks back to patient)
   const speakPrescription = () => {
-    if (!window.speechSynthesis) {
-      alert("Audio synthesis not supported.");
-      return;
-    }
+    if (!window.speechSynthesis) return;
 
     if (isSpeaking) {
       window.speechSynthesis.cancel();
@@ -64,7 +86,7 @@ export default function VoiceSearch({
 
     const utterance = new SpeechSynthesisUtterance(readAloudText);
     utterance.lang = langMode;
-    utterance.rate = 0.9; // Slightly slower for clear rural comprehension
+    utterance.rate = 0.88; // Slower for rural clarity
 
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
@@ -73,12 +95,12 @@ export default function VoiceSearch({
   };
 
   return (
-    <div className="bg-white border-2 border-zinc-900 p-6 space-y-4">
-      {/* Accessibility Header */}
+    <div className="bg-white border-2 border-zinc-900 p-6 space-y-4 font-sans">
+      {/* Header */}
       <div className="flex justify-between items-center border-b border-zinc-200 pb-3">
         <div>
           <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-800 font-bold block">
-            Rural Accessibility Assistant
+            Rural Accessibility Engine
           </span>
           <h3 className="text-base font-bold text-zinc-900">
             {langMode === "hi-IN"
@@ -87,7 +109,6 @@ export default function VoiceSearch({
           </h3>
         </div>
 
-        {/* Voice Language Toggle */}
         <button
           type="button"
           onClick={() => setLangMode(langMode === "hi-IN" ? "en-IN" : "hi-IN")}
@@ -95,14 +116,14 @@ export default function VoiceSearch({
         >
           <Globe className="w-3.5 h-3.5" />
           <span>
-            {langMode === "hi-IN" ? "Listening: हिन्दी" : "Listening: English"}
+            {langMode === "hi-IN" ? "हिन्दी (Hindi)" : "English (India)"}
           </span>
         </button>
       </div>
 
-      {/* Main Large Voice Action Area */}
+      {/* Main Buttons */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-        {/* BIG MIC BUTTON (Speech to Text) */}
+        {/* Speak Symptoms Button */}
         <button
           type="button"
           onClick={toggleListening}
@@ -127,13 +148,13 @@ export default function VoiceSearch({
             </strong>
             <span className="text-xs text-zinc-500 block mt-0.5">
               {langMode === "hi-IN"
-                ? "माइक दबाकर अपनी परेशानी बताएं"
-                : "Speak your symptoms in plain words"}
+                ? 'परेशानी बोलें (उदा. "सर दर्द" या "डॉक्टर कॉल")'
+                : 'Speak symptoms or say "Doctor Call" / "SOS"'}
             </span>
           </div>
         </button>
 
-        {/* BIG SPEAKER BUTTON (Text to Speech - Audio Readout) */}
+        {/* Read Aloud Button */}
         <button
           type="button"
           onClick={speakPrescription}
@@ -161,18 +182,31 @@ export default function VoiceSearch({
         </button>
       </div>
 
-      {/* Transcript Feedback Box */}
+      {/* Live Transcript & Auto-Action Banner */}
       {transcript && (
-        <div className="p-4 bg-emerald-50 border border-emerald-300 flex items-start gap-3">
-          <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
-          <div>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-800 font-bold block">
-              Recorded Patient Complaint
-            </span>
-            <p className="text-sm font-medium text-zinc-900 mt-0.5">
-              "{transcript}"
-            </p>
+        <div className="p-4 bg-emerald-50 border border-emerald-300 space-y-2">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-800 font-bold block">
+                Recorded Patient Symptom
+              </span>
+              <p className="text-sm font-medium text-zinc-900 mt-0.5">
+                "{transcript}"
+              </p>
+            </div>
           </div>
+
+          {detectedCommand && (
+            <div className="flex items-center gap-2 pt-2 border-t border-emerald-200 text-xs font-mono text-emerald-900">
+              <Sparkles className="w-4 h-4 text-emerald-600 animate-spin" />
+              <span>
+                Voice Command Detected:{" "}
+                <strong>{detectedCommand.toUpperCase()}</strong> (Triggered
+                automatically)
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>
