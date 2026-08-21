@@ -8,24 +8,30 @@ import {
   Sparkles,
 } from "lucide-react";
 
-export default function VoiceSearch({
+/**
+ * HACQUIRE TRADABLE ASSET: Vernacular Voice & Audio Triage Engine
+ * - Speech-to-Text: Logs spoken patient symptoms into appointment requests.
+ * - Text-to-Speech: Audibly reads prescription dosage schedules.
+ * - Voice Routing: Executes commands ("Doctor Call", "SOS") hands-free.
+ */
+export default function VoiceAssistant({
   onResult,
   onCommand,
-  readAloudText = "You have 3 medications today. Your next pill is Metformin at 8:00 AM.",
+  readAloudText = "You have active medications today. Please follow your dosage schedule.",
 }) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
-  const [langMode, setLangMode] = useState("en-IN");
+  const [langMode, setLangMode] = useState("en-IN"); // 'hi-IN' or 'en-IN'
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [detectedCommand, setDetectedCommand] = useState(null);
 
-  // 1. Speech-to-Text & Intelligent Action Trigger
+  // 1. Speech-to-Text & Command Parser
   const toggleListening = () => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert(
-        "Speech recognition is not supported in this browser. Please use Chrome.",
+        "Speech recognition not supported in this browser. Please use Chrome/Edge.",
       );
       return;
     }
@@ -50,7 +56,7 @@ export default function VoiceSearch({
       setTranscript(text);
       if (onResult) onResult(text);
 
-      // Simple Voice Command Parser
+      // Voice Command Routing
       const lower = text.toLowerCase();
       if (
         lower.includes("doctor") ||
@@ -74,7 +80,7 @@ export default function VoiceSearch({
     recognition.start();
   };
 
-  // 2. Text-to-Speech (App talks back to patient)
+  // 2. Text-to-Speech Audio Readout
   const speakPrescription = () => {
     if (!window.speechSynthesis) return;
 
@@ -86,7 +92,7 @@ export default function VoiceSearch({
 
     const utterance = new SpeechSynthesisUtterance(readAloudText);
     utterance.lang = langMode;
-    utterance.rate = 0.88; // Slower for rural clarity
+    utterance.rate = 0.88; // Slower cadence for rural clarity
 
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
@@ -95,7 +101,7 @@ export default function VoiceSearch({
   };
 
   return (
-    <div className="bg-white border-2 border-zinc-900 p-6 space-y-4 font-sans">
+    <div className="bg-white border-2 border-zinc-900 p-6 space-y-4 font-sans shadow-sm">
       {/* Header */}
       <div className="flex justify-between items-center border-b border-zinc-200 pb-3">
         <div>
@@ -104,8 +110,8 @@ export default function VoiceSearch({
           </span>
           <h3 className="text-base font-bold text-zinc-900">
             {langMode === "hi-IN"
-              ? "बोलकर बताएं / आवाज में सुनें"
-              : "Voice Symptom & Audio Assistant"}
+              ? "आवाज द्वारा लक्षण रिकॉर्ड एवं दवा श्रवण"
+              : "Vernacular Voice Triage & Audio Companion"}
           </h3>
         </div>
 
@@ -116,7 +122,7 @@ export default function VoiceSearch({
         >
           <Globe className="w-3.5 h-3.5" />
           <span>
-            {langMode === "hi-IN" ? "हिन्दी (Hindi)" : "English (India)"}
+            {langMode === "hi-IN" ? "Listening: हिन्दी" : "Listening: English"}
           </span>
         </button>
       </div>
@@ -148,7 +154,7 @@ export default function VoiceSearch({
             </strong>
             <span className="text-xs text-zinc-500 block mt-0.5">
               {langMode === "hi-IN"
-                ? 'परेशानी बोलें (उदा. "सर दर्द" या "डॉक्टर कॉल")'
+                ? 'बोलें (उदा. "सर दर्द" या "डॉक्टर कॉल")'
                 : 'Speak symptoms or say "Doctor Call" / "SOS"'}
             </span>
           </div>
@@ -176,20 +182,20 @@ export default function VoiceSearch({
             <span className="text-xs text-zinc-500 block mt-0.5">
               {langMode === "hi-IN"
                 ? "दवाइयों का समय आवाज में सुनें"
-                : "Listen to your daily medication schedule"}
+                : "Listen to daily medication schedule"}
             </span>
           </div>
         </button>
       </div>
 
-      {/* Live Transcript & Auto-Action Banner */}
+      {/* Transcript & Command Banner */}
       {transcript && (
         <div className="p-4 bg-emerald-50 border border-emerald-300 space-y-2">
           <div className="flex items-start gap-3">
             <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
             <div>
               <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-800 font-bold block">
-                Recorded Patient Symptom
+                Recorded Patient Triage Symptom
               </span>
               <p className="text-sm font-medium text-zinc-900 mt-0.5">
                 "{transcript}"
@@ -201,9 +207,8 @@ export default function VoiceSearch({
             <div className="flex items-center gap-2 pt-2 border-t border-emerald-200 text-xs font-mono text-emerald-900">
               <Sparkles className="w-4 h-4 text-emerald-600 animate-spin" />
               <span>
-                Voice Command Detected:{" "}
-                <strong>{detectedCommand.toUpperCase()}</strong> (Triggered
-                automatically)
+                Auto-Action Triggered:{" "}
+                <strong>{detectedCommand.toUpperCase()}</strong>
               </span>
             </div>
           )}

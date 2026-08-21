@@ -16,7 +16,7 @@ import {
   Users,
   Video,
 } from "lucide-react";
-import VoiceSearch from "../modules/VoiceSearch";
+import VoiceAssistant from "../modules/VoiceAssistant";
 import VideoConsult from "../modules/VideoConsult";
 import EmergencyEscalation from "../modules/EmergencyEscalation";
 import { queueOfflineAction } from "../modules/OfflineSync";
@@ -288,7 +288,7 @@ export default function PatientPortal({ user, onLogout }) {
 
       {/* Voice Assistant */}
       <div className="space-y-2">
-        <VoiceSearch
+        <VoiceAssistant
           onResult={handleVoiceResult}
           onCommand={handleVoiceCommand}
           readAloudText={`Hello ${user?.name || "Rahul"}. You have ${meds.length} active prescriptions in ${user?.village || "Rampur"}.`}
