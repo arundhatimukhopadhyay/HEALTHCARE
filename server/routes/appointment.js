@@ -1,50 +1,37 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const supabase = require("../config/supabaseClient");
+const supabase = require('../config/supabaseClient');
 
-// GET /api/appointments
-router.get("/", async (req, res) => {
-  const { data, error } = await supabase.from("appointments").select("*");
-  if (error) return res.status(400).json({ error: error.message });
-  res.json(data);
+// PATIENT: Get My Profile
+router.get('/profile/:id', async (req, res) => {
+    const { data, error } = await supabase
+        .from('users')
+        .select('name, identifier, village, role')
+        .eq('id', req.params.id)
+        .single();
+    if (error) return res.status(400).json(error);
+    res.json(data);
 });
 
-// POST /api/appointments
-router.post("/", async (req, res) => {
-  const {
-    patientId,
-    patient_name,
-    token_number,
-    token,
-    reason,
-    chiefComplaint,
-    village,
-  } = req.body;
-  const symptomNote = reason || chiefComplaint || "General Consultation";
+// PATIENT: Get Medical Timeline (Past Appointments)
+router.get('/timeline/:patientId', async (req, res) => {
+    const { data, error } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('patient_id', req.params.patientId)
+        .order('id', { ascending: false });
+    if (error) return res.status(400).json(error);
+    res.json(data);
+});
 
-  const newRow = {
-    token_number: token_number || token || "T-019",
-    patient_name: patient_name || "Rahul Das",
-    patient_id: patientId || "2103e7ac-8ab0-47ec-8173-d009a44a6ecc",
-  };
-
-  // Save to Supabase (and safely catch if column is missing)
-  try {
-    await supabase
-      .from("appointments")
-      .insert([
-        { ...newRow, reason: symptomNote, village: village || "Rampur" },
-      ]);
-  } catch (err) {
-    await supabase.from("appointments").insert([newRow]);
-  }
-
-  res.json({
-    ...newRow,
-    reason: symptomNote,
-    chiefComplaint: symptomNote,
-    village: village || "Rampur",
-  });
+// EMERGENCY: Create Escalation (SOS)
+router.post('/sos', async (req, res) => {
+    const { patient_id, latitude, longitude } = req.body;
+    const { data, error } = await supabase
+        .from('escalations')
+        .insert([{ patient_id, latitude, longitude, status: 'DISPATCHED' }]);
+    if (error) return res.status(400).json(error);
+    res.json({ message: "SOS Sent! Help is on the way.", data });
 });
 
 module.exports = router;
