@@ -1,735 +1,1481 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Activity,
-  Calendar,
-  Clock,
-  Pill,
-  FileText,
-  Stethoscope,
-  Upload,
-  AlertCircle,
+  Ambulance,
+  CalendarDays,
   Check,
-  Trophy,
-  X,
-  User,
-  ArrowRight,
-  ClipboardList,
-  Phone,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  FileText,
+  Hash,
+  HeartPulse,
+  History,
+  Home,
+  Hospital,
+  LogOut,
   MapPin,
+  Menu,
+  Mic,
+  Pause,
+  Pill,
+  Play,
+  RotateCcw,
+  ShieldAlert,
+  Stethoscope,
+  Trophy,
+  Upload,
+  User,
+  Users,
+  Volume2,
+  X,
 } from "lucide-react";
 
 export default function PatientPortal() {
-  // =========================
-  // GET LOGGED-IN USER
-  // =========================
-  const storedUser = localStorage.getItem("user");
+  const navigate = useNavigate();
 
-  let user = null;
+  // =========================================================
+  // PATIENT DETAILS
+  // =========================================================
 
-  try {
-    user = storedUser ? JSON.parse(storedUser) : null;
-  } catch (error) {
-    console.error("Unable to read user data:", error);
-  }
+  const patientName = localStorage.getItem("patientName") || "Patient";
+  const tokenNumber = localStorage.getItem("tokenNumber") || "A-042";
 
-  const patientName = user?.name || "Patient";
+  // =========================================================
+  // STATES
+  // =========================================================
 
-  // =========================
-  // MEDICATION STATE
-  // =========================
-  const [medications, setMedications] = useState({
-    morning: false,
-    afternoon: false,
-    evening: false,
-  });
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // =========================
-  // CELEBRATION STATE
-  // =========================
+  const [morningTaken, setMorningTaken] = useState(false);
+  const [afternoonTaken, setAfternoonTaken] = useState(false);
+  const [eveningTaken, setEveningTaken] = useState(false);
+
   const [showCelebration, setShowCelebration] = useState(false);
-  const [streak, setStreak] = useState(7);
-  const [celebrationShown, setCelebrationShown] = useState(false);
 
-  // =========================
-  // TAB STATE
-  // =========================
-  const [activeTab, setActiveTab] = useState("consultations");
+  const [selectedLanguage, setSelectedLanguage] = useState("English");
+  const [triageStarted, setTriageStarted] = useState(false);
 
-  // =========================
-  // MEDICATION SCHEDULE
-  // =========================
-  const medicationSlots = [
-    {
-      id: "morning",
-      label: "Morning Dose",
-      time: "8:00 AM",
-    },
-    {
-      id: "afternoon",
-      label: "Afternoon Dose",
-      time: "2:00 PM",
-    },
-    {
-      id: "evening",
-      label: "Evening Dose",
-      time: "8:00 PM",
-    },
-  ];
+  const [audioPlaying, setAudioPlaying] = useState(false);
 
-  // =========================
-  // MEDICATION HANDLER
-  // =========================
-  const toggleMedication = (time) => {
-    setMedications((prev) => {
-      const updated = {
-        ...prev,
-        [time]: !prev[time],
-      };
+  // =========================================================
+  // MEDICATION PROGRESS
+  // =========================================================
 
-      const allCompleted =
-        updated.morning &&
-        updated.afternoon &&
-        updated.evening;
+  const completedDoses =
+    Number(morningTaken) +
+    Number(afternoonTaken) +
+    Number(eveningTaken);
 
-      if (allCompleted && !celebrationShown) {
-        setShowCelebration(true);
-        setCelebrationShown(true);
-        setStreak((current) => current + 1);
-      }
+  const medicationProgress = (completedDoses / 3) * 100;
 
-      return updated;
+  // =========================================================
+  // MEDICATION CELEBRATION
+  // =========================================================
+
+  useEffect(() => {
+    if (morningTaken && afternoonTaken && eveningTaken) {
+      setShowCelebration(true);
+    }
+  }, [morningTaken, afternoonTaken, eveningTaken]);
+
+  // =========================================================
+  // SCROLL TO SECTION
+  // =========================================================
+
+  const scrollToSection = (id) => {
+    document.getElementById(id)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
     });
+
+    setSidebarOpen(false);
   };
 
-  const completedCount =
-    Object.values(medications).filter(Boolean).length;
+  // =========================================================
+  // LOGOUT
+  // =========================================================
+
+  const handleLogout = () => {
+    localStorage.removeItem("patientName");
+    navigate("/login");
+  };
+
+  // =========================================================
+  // SOS
+  // =========================================================
+
+  const handleSOS = () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to activate Emergency SOS?"
+    );
+
+    if (confirmed) {
+      alert(
+        "SOS Activated! Emergency contacts and healthcare assistance workflow will start here."
+      );
+    }
+  };
+
+  // =========================================================
+  // VOICE TRIAGE
+  // =========================================================
+
+  const handleVoiceTriage = () => {
+    setTriageStarted(!triageStarted);
+  };
+
+  // =========================================================
+  // AUDIO COMPANION
+  // =========================================================
+
+  const handleAudioStart = () => {
+    setAudioPlaying(true);
+  };
+
+  const handleAudioPause = () => {
+    setAudioPlaying(false);
+  };
+
+  const handleAudioRepeat = () => {
+    setAudioPlaying(true);
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      {/* ================= HEADER ================= */}
+      {/* =====================================================
+          MOBILE HEADER
+      ====================================================== */}
 
-      <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 bg-cyan-500 rounded-xl flex items-center justify-center">
-              <Activity className="text-slate-950" size={25} />
+      <header className="sticky top-0 z-40 flex h-20 items-center justify-between border-b border-slate-800 bg-slate-950 px-5 lg:hidden">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-400 text-slate-950">
+            <Activity size={24} />
+          </div>
+
+          <div>
+            <h1 className="font-bold">HealthConnect</h1>
+
+            <p className="text-xs text-slate-500">
+              Patient Portal
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-700 bg-slate-900"
+        >
+          {sidebarOpen ? <X /> : <Menu />}
+        </button>
+      </header>
+
+      <div className="flex">
+        {/* =====================================================
+            MOBILE OVERLAY
+        ====================================================== */}
+
+        {sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+          />
+        )}
+
+        {/* =====================================================
+            SIDEBAR
+        ====================================================== */}
+
+        <aside
+          className={`
+            fixed inset-y-0 left-0 z-50 flex w-72
+            flex-col border-r border-slate-800
+            bg-slate-950 transition-transform
+            duration-300
+
+            lg:sticky
+            lg:top-0
+            lg:h-screen
+            lg:translate-x-0
+
+            ${
+              sidebarOpen
+                ? "translate-x-0"
+                : "-translate-x-full"
+            }
+          `}
+        >
+          {/* LOGO */}
+
+          <div className="flex h-24 items-center gap-3 border-b border-slate-800 px-6">
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-400 text-slate-950"
+              style={{
+                boxShadow:
+                  "0 0 25px rgba(34,211,238,0.35)",
+              }}
+            >
+              <Activity size={25} />
             </div>
 
             <div>
-              <h1 className="text-lg md:text-xl font-bold">
-                HealthConnect
-              </h1>
+              <h1 className="font-bold">HealthConnect</h1>
 
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 Patient Portal
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-2 bg-emerald-500/10 text-emerald-400 px-4 py-2 rounded-xl text-sm">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Account Active
-            </div>
+          {/* PATIENT PROFILE */}
 
-            <div className="w-10 h-10 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
-              <User className="text-cyan-400" size={20} />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 md:px-8 py-8">
-        {/* ================= WELCOME ================= */}
-
-        <section className="mb-8">
-          <p className="text-cyan-400 font-medium">
-            Good Morning 👋
-          </p>
-
-          <h2 className="text-3xl md:text-4xl font-bold mt-2">
-            Welcome back, {patientName}!
-          </h2>
-
-          <p className="text-slate-400 mt-3">
-            Manage your appointments, medications, prescriptions, and health
-            records in one place.
-          </p>
-        </section>
-
-        {/* ================= QUICK ACTIONS ================= */}
-
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-5">
-            <Activity className="text-cyan-400" size={22} />
-
-            <h2 className="text-xl font-semibold">
-              Quick Actions
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* BOOK APPOINTMENT */}
-
-            <button className="bg-slate-900 border border-slate-800 hover:border-cyan-500 rounded-2xl p-5 text-left transition group">
-              <div className="w-11 h-11 bg-cyan-500/10 rounded-xl flex items-center justify-center group-hover:bg-cyan-500/20">
-                <Calendar className="text-cyan-400" size={22} />
+          <div className="mx-4 mt-6 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-400">
+                <User size={22} />
               </div>
 
-              <h3 className="font-semibold mt-4">
-                Book Appointment
-              </h3>
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500">
+                  LOGGED IN AS
+                </p>
 
-              <p className="text-xs text-slate-400 mt-2">
-                Schedule a consultation
-              </p>
-            </button>
-
-            {/* UPLOAD REPORT */}
-
-            <button className="bg-slate-900 border border-slate-800 hover:border-teal-500 rounded-2xl p-5 text-left transition group">
-              <div className="w-11 h-11 bg-teal-500/10 rounded-xl flex items-center justify-center group-hover:bg-teal-500/20">
-                <Upload className="text-teal-400" size={22} />
+                <p className="truncate font-semibold">
+                  {patientName}
+                </p>
               </div>
+            </div>
+          </div>
 
-              <h3 className="font-semibold mt-4">
-                Upload Report
-              </h3>
+          {/* NAVIGATION */}
 
-              <p className="text-xs text-slate-400 mt-2">
-                Add medical documents
-              </p>
-            </button>
+          <nav className="flex-1 space-y-2 p-4">
+            <SidebarButton
+              icon={<Home size={20} />}
+              text="Dashboard"
+              onClick={() => {
+                window.scrollTo({
+                  top: 0,
+                  behavior: "smooth",
+                });
 
-            {/* PRESCRIPTIONS */}
+                setSidebarOpen(false);
+              }}
+            />
 
+            <SidebarButton
+              icon={<CalendarDays size={20} />}
+              text="Appointments"
+              onClick={() =>
+                scrollToSection("appointment")
+              }
+            />
+
+            <SidebarButton
+              icon={<Pill size={20} />}
+              text="Prescriptions"
+              onClick={() =>
+                scrollToSection("prescriptions")
+              }
+            />
+
+            <SidebarButton
+              icon={<FileText size={20} />}
+              text="Health Records"
+              onClick={() =>
+                scrollToSection("records")
+              }
+            />
+
+            <SidebarButton
+              icon={<History size={20} />}
+              text="Medical History"
+              onClick={() =>
+                scrollToSection("history")
+              }
+            />
+
+            <SidebarButton
+              icon={<ShieldAlert size={20} />}
+              text="Emergency SOS"
+              onClick={() =>
+                scrollToSection("emergency")
+              }
+            />
+          </nav>
+
+          {/* LOGOUT */}
+
+          <div className="border-t border-slate-800 p-4">
             <button
-              onClick={() => setActiveTab("prescriptions")}
-              className="bg-slate-900 border border-slate-800 hover:border-purple-500 rounded-2xl p-5 text-left transition group"
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-slate-400 transition hover:bg-red-500/10 hover:text-red-400"
             >
-              <div className="w-11 h-11 bg-purple-500/10 rounded-xl flex items-center justify-center group-hover:bg-purple-500/20">
-                <Pill className="text-purple-400" size={22} />
-              </div>
-
-              <h3 className="font-semibold mt-4">
-                Prescriptions
-              </h3>
-
-              <p className="text-xs text-slate-400 mt-2">
-                View active medicines
-              </p>
-            </button>
-
-            {/* EMERGENCY */}
-
-            <button className="bg-slate-900 border border-slate-800 hover:border-red-500 rounded-2xl p-5 text-left transition group">
-              <div className="w-11 h-11 bg-red-500/10 rounded-xl flex items-center justify-center group-hover:bg-red-500/20">
-                <AlertCircle className="text-red-400" size={22} />
-              </div>
-
-              <h3 className="font-semibold mt-4">
-                Emergency Help
-              </h3>
-
-              <p className="text-xs text-slate-400 mt-2">
-                Request immediate assistance
-              </p>
+              <LogOut size={20} />
+              Logout
             </button>
           </div>
-        </section>
+        </aside>
 
-        {/* ================= TODAY'S HEALTH OVERVIEW ================= */}
+        {/* =====================================================
+            MAIN CONTENT
+        ====================================================== */}
 
-        <section className="mb-8">
-          <div className="flex items-center gap-2 mb-5">
-            <ClipboardList className="text-cyan-400" size={22} />
+        <main className="min-w-0 flex-1">
+          <div className="mx-auto max-w-7xl px-5 py-8 md:px-8 md:py-10">
 
-            <h2 className="text-xl font-semibold">
-              Today's Health Overview
-            </h2>
-          </div>
+            {/* =================================================
+                WELCOME SECTION
+            ================================================== */}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* NEXT CONSULTATION */}
-
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
-              <div className="flex justify-between items-start">
-                <div className="w-12 h-12 bg-cyan-500/10 rounded-2xl flex items-center justify-center">
-                  <Stethoscope className="text-cyan-400" size={25} />
-                </div>
-
-                <span className="text-xs bg-cyan-500/10 text-cyan-400 px-3 py-1 rounded-full">
-                  Upcoming
-                </span>
-              </div>
-
-              <p className="text-slate-400 mt-5 text-sm">
-                Next Consultation
+            <section>
+              <p className="text-sm font-semibold tracking-[0.2em] text-cyan-400">
+                PATIENT DASHBOARD
               </p>
 
-              <h3 className="font-semibold text-lg mt-2">
-                General Health Checkup
-              </h3>
+              <h1 className="mt-3 text-3xl font-bold md:text-5xl">
+                Welcome back,{" "}
+                <span className="text-cyan-400">
+                  {patientName}
+                </span>{" "}
+                👋
+              </h1>
 
-              <div className="flex items-center gap-2 mt-4 text-sm text-slate-400">
-                <Calendar size={16} />
-                Tomorrow
-              </div>
+              <p className="mt-3 max-w-2xl text-slate-400">
+                Your healthcare information, appointments,
+                prescriptions and records — all in one place.
+              </p>
+            </section>
 
-              <div className="flex items-center gap-2 mt-2 text-sm text-slate-400">
-                <Clock size={16} />
-                10:30 AM
-              </div>
-            </div>
+            {/* =================================================
+                TOP SUMMARY PANELS
+            ================================================== */}
 
-            {/* MEDICATION PROGRESS */}
+            <section className="mt-10 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
 
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
-              <div className="flex justify-between items-start">
-                <div className="w-12 h-12 bg-teal-500/10 rounded-2xl flex items-center justify-center">
-                  <Pill className="text-teal-400" size={25} />
+              {/* TOKEN */}
+
+              <DashboardCard
+                icon={<Hash size={24} />}
+                color="#facc15"
+                glow="rgba(250,204,21,0.20)"
+              >
+                <p className="text-sm font-semibold tracking-wider text-yellow-400">
+                  CURRENT TOKEN
+                </p>
+
+                <h2 className="mt-4 text-4xl font-bold">
+                  {tokenNumber}
+                </h2>
+
+                <div className="mt-4 space-y-1 text-sm text-slate-400">
+                  <p>
+                    Queue Position:{" "}
+                    <span className="text-white">5</span>
+                  </p>
+
+                  <p>
+                    Estimated wait:{" "}
+                    <span className="text-white">
+                      20 mins
+                    </span>
+                  </p>
+                </div>
+              </DashboardCard>
+
+              {/* APPOINTMENT */}
+
+              <DashboardCard
+                icon={<CalendarDays size={24} />}
+                color="#22d3ee"
+                glow="rgba(34,211,238,0.20)"
+              >
+                <p className="text-sm font-semibold tracking-wider text-cyan-400">
+                  NEXT APPOINTMENT
+                </p>
+
+                <h2 className="mt-4 text-xl font-bold">
+                  Tomorrow
+                </h2>
+
+                <p className="mt-2 text-slate-400">
+                  10:30 AM
+                </p>
+
+                <p className="mt-4 text-sm text-cyan-400">
+                  Dr. Healthcare Provider
+                </p>
+              </DashboardCard>
+
+              {/* PRESCRIPTIONS */}
+
+              <DashboardCard
+                icon={<FileText size={24} />}
+                color="#a78bfa"
+                glow="rgba(167,139,250,0.20)"
+              >
+                <p className="text-sm font-semibold tracking-wider text-violet-400">
+                  PRESCRIPTIONS
+                </p>
+
+                <h2 className="mt-4 text-4xl font-bold">
+                  3
+                </h2>
+
+                <p className="mt-2 text-slate-400">
+                  Active prescriptions
+                </p>
+
+                <button
+                  onClick={() =>
+                    scrollToSection("prescriptions")
+                  }
+                  className="mt-4 text-sm font-semibold text-violet-400"
+                >
+                  View Details →
+                </button>
+              </DashboardCard>
+
+              {/* MEDICATION */}
+
+              <DashboardCard
+                icon={<Pill size={24} />}
+                color="#2dd4bf"
+                glow="rgba(45,212,191,0.20)"
+              >
+                <p className="text-sm font-semibold tracking-wider text-teal-400">
+                  MEDICATION
+                </p>
+
+                <h2 className="mt-4 text-4xl font-bold">
+                  {completedDoses}/3
+                </h2>
+
+                <p className="mt-2 text-slate-400">
+                  Completed today
+                </p>
+
+                <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-800">
+                  <div
+                    className="h-full rounded-full bg-teal-400 transition-all duration-500"
+                    style={{
+                      width: `${medicationProgress}%`,
+                    }}
+                  />
+                </div>
+              </DashboardCard>
+            </section>
+
+            {/* =================================================
+                VOICE HEALTHCARE ASSISTANCE
+                NOW ABOVE QUICK ACTIONS
+            ================================================== */}
+
+            <section className="mt-12">
+              <SectionHeading
+                title="Voice Healthcare Assistance"
+                subtitle="Describe your symptoms in your preferred language or receive spoken healthcare guidance."
+              />
+
+              <div className="mt-6 grid gap-6 lg:grid-cols-2">
+
+                {/* VERNACULAR VOICE TRIAGE */}
+
+                <div className="rounded-3xl border border-orange-400/40 bg-orange-400/5 p-6 transition hover:border-orange-400 hover:bg-orange-400/10">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-400/15 text-orange-400">
+                      <Mic size={28} />
+                    </div>
+
+                    <div>
+                      <h3 className="text-xl font-bold text-white">
+                        Vernacular Voice Triage
+                      </h3>
+
+                      <p className="mt-2 text-sm leading-6 text-slate-400">
+                        Describe your symptoms in the language
+                        you are most comfortable with.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <label className="text-sm font-semibold text-slate-300">
+                      Select Your Language
+                    </label>
+
+                    <select
+                      value={selectedLanguage}
+                      onChange={(e) =>
+                        setSelectedLanguage(e.target.value)
+                      }
+                      className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-orange-400"
+                    >
+                      <option>English</option>
+                      <option>Hindi</option>
+                      <option>Bengali</option>
+                      <option>Odia</option>
+                      <option>Tamil</option>
+                      <option>Telugu</option>
+                      <option>Marathi</option>
+                      <option>Gujarati</option>
+                      <option>Punjabi</option>
+                      <option>Kannada</option>
+                      <option>Malayalam</option>
+                      <option>Others</option>
+                    </select>
+                  </div>
+
+                  <button
+                    onClick={handleVoiceTriage}
+                    className={`mt-5 flex w-full items-center justify-center gap-3 rounded-xl px-5 py-4 font-bold text-white transition hover:scale-[1.02]
+                      ${
+                        triageStarted
+                          ? "animate-pulse bg-red-500"
+                          : "bg-orange-500 hover:bg-orange-400"
+                      }`}
+                  >
+                    <Mic size={21} />
+
+                    {triageStarted
+                      ? "Listening... Tap to Stop"
+                      : `Speak in ${selectedLanguage}`}
+                  </button>
+
+                  <div className="mt-5 rounded-xl border border-slate-700 bg-slate-950 p-4">
+                    <p className="text-xs tracking-wider text-slate-500">
+                      VOICE TRIAGE STATUS
+                    </p>
+
+                    <p className="mt-2 text-sm text-slate-300">
+                      {triageStarted
+                        ? "Listening to your symptoms..."
+                        : "Tap the microphone and describe what is happening."}
+                    </p>
+                  </div>
                 </div>
 
-                <span className="text-xs bg-teal-500/10 text-teal-400 px-3 py-1 rounded-full">
-                  Today
-                </span>
+                {/* AUDIO COMPANION */}
+
+                <div className="rounded-3xl border border-cyan-400/40 bg-cyan-400/5 p-6 transition hover:border-cyan-400 hover:bg-cyan-400/10">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-400">
+                      <Volume2 size={28} />
+                    </div>
+
+                    <div>
+                      <h3 className="text-xl font-bold text-white">
+                        Audio Companion
+                      </h3>
+
+                      <p className="mt-2 text-sm leading-6 text-slate-400">
+                        Receive spoken guidance and healthcare
+                        instructions while using the application.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* AUDIO VISUALIZER */}
+
+                  <div className="mt-8 flex h-28 items-center justify-center gap-2 rounded-2xl border border-cyan-400/20 bg-slate-950">
+                    {[6, 12, 20, 10, 16, 8].map(
+                      (height, index) => (
+                        <span
+                          key={index}
+                          className={`w-2 rounded-full bg-cyan-400 ${
+                            audioPlaying
+                              ? "animate-pulse"
+                              : ""
+                          }`}
+                          style={{
+                            height: `${height * 4}px`,
+                          }}
+                        />
+                      )
+                    )}
+                  </div>
+
+                  <div className="mt-5 text-center">
+                    <p className="font-semibold text-cyan-400">
+                      Healthcare Audio Companion
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      {audioPlaying
+                        ? "Audio guidance is playing..."
+                        : "Ready to provide voice guidance"}
+                    </p>
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-3 gap-3">
+
+                    <button
+                      onClick={handleAudioStart}
+                      className="flex flex-col items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-4 text-cyan-400 transition hover:bg-cyan-400 hover:text-slate-950"
+                    >
+                      <Play size={20} />
+
+                      <span className="text-xs font-semibold">
+                        Start
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={handleAudioPause}
+                      className="flex flex-col items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-3 py-4 text-slate-300 transition hover:border-cyan-400"
+                    >
+                      <Pause size={20} />
+
+                      <span className="text-xs font-semibold">
+                        Pause
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={handleAudioRepeat}
+                      className="flex flex-col items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-3 py-4 text-slate-300 transition hover:border-cyan-400"
+                    >
+                      <RotateCcw size={20} />
+
+                      <span className="text-xs font-semibold">
+                        Repeat
+                      </span>
+                    </button>
+
+                  </div>
+                </div>
               </div>
+            </section>
 
-              <p className="text-slate-400 mt-5 text-sm">
-                Medication Progress
-              </p>
+            {/* =================================================
+                QUICK ACTIONS
+            ================================================== */}
 
-              <h3 className="font-semibold text-lg mt-2">
-                {completedCount} of 3 doses completed
-              </h3>
+            <section className="mt-12">
+              <SectionHeading
+                title="Quick Actions"
+                subtitle="Access important healthcare services quickly."
+              />
 
-              <div className="mt-5 h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-cyan-400 rounded-full transition-all duration-500"
-                  style={{
-                    width: `${(completedCount / 3) * 100}%`,
-                  }}
+              <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+
+                <QuickAction
+                  icon={<CalendarDays size={28} />}
+                  title="Book Appointment"
+                  text="Schedule a consultation"
+                  onClick={() =>
+                    navigate("/appointments")
+                  }
+                />
+
+                <QuickAction
+                  icon={<Stethoscope size={28} />}
+                  title="Find a Doctor"
+                  text="Explore healthcare providers"
+                  onClick={() =>
+                    navigate("/doctors")
+                  }
+                />
+
+                <QuickAction
+                  icon={<Upload size={28} />}
+                  title="Upload Prescription"
+                  text="Upload handwritten prescription"
+                  onClick={() =>
+                    scrollToSection("prescriptions")
+                  }
+                />
+
+                <QuickAction
+                  icon={<History size={28} />}
+                  title="Medical History"
+                  text="View your past records"
+                  onClick={() =>
+                    scrollToSection("history")
+                  }
                 />
               </div>
+            </section>
 
-              <p className="text-sm text-slate-400 mt-3">
-                Keep following your prescribed schedule.
-              </p>
-            </div>
+            {/* =================================================
+                APPOINTMENT AND TOKEN
+            ================================================== */}
 
-            {/* HEALTH TASKS */}
+            <section
+              id="appointment"
+              className="mt-12 scroll-mt-24"
+            >
+              <SectionHeading
+                title="Current Appointment & Queue"
+                subtitle="Track your appointment and queue status."
+              />
 
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6">
-              <div className="flex justify-between items-start">
-                <div className="w-12 h-12 bg-orange-500/10 rounded-2xl flex items-center justify-center">
-                  <ClipboardList className="text-orange-400" size={25} />
-                </div>
+              <div className="mt-6 grid gap-6 lg:grid-cols-3">
+                <div className="rounded-3xl border border-cyan-400/20 bg-slate-900 p-6 lg:col-span-2">
 
-                <span className="text-xs bg-orange-500/10 text-orange-400 px-3 py-1 rounded-full">
-                  Attention
-                </span>
-              </div>
+                  <div className="flex flex-col justify-between gap-5 md:flex-row">
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-400">
+                          <Stethoscope size={24} />
+                        </div>
 
-              <p className="text-slate-400 mt-5 text-sm">
-                Health Tasks
-              </p>
+                        <div>
+                          <h3 className="text-xl font-bold">
+                            Dr. Healthcare Provider
+                          </h3>
 
-              <h3 className="font-semibold text-lg mt-2">
-                2 tasks pending
-              </h3>
+                          <p className="text-sm text-slate-400">
+                            General Consultation
+                          </p>
+                        </div>
+                      </div>
 
-              <div className="mt-4 space-y-2">
-                <p className="text-sm text-slate-400">
-                  • Upload latest medical report
-                </p>
+                      <div className="mt-6 grid gap-4 sm:grid-cols-2">
 
-                <p className="text-sm text-slate-400">
-                  • Confirm follow-up appointment
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
+                        <AppointmentInfo
+                          icon={<CalendarDays size={18} />}
+                          label="Date"
+                          value="Tomorrow"
+                        />
 
-        {/* ================= MEDICATION ADHERENCE ================= */}
+                        <AppointmentInfo
+                          icon={<Clock size={18} />}
+                          label="Time"
+                          value="10:30 AM"
+                        />
 
-        <section className="bg-slate-900 border border-slate-800 rounded-3xl p-5 md:p-7 mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-            <div>
-              <h2 className="text-xl font-semibold">
-                Medication Adherence
-              </h2>
+                        <AppointmentInfo
+                          icon={<Hospital size={18} />}
+                          label="Clinic"
+                          value="HealthConnect Clinic"
+                        />
 
-              <p className="text-sm text-slate-400 mt-1">
-                Mark each dose after taking your medication.
-              </p>
-            </div>
+                        <AppointmentInfo
+                          icon={<MapPin size={18} />}
+                          label="Location"
+                          value="Healthcare Center"
+                        />
 
-            <div className="bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 px-4 py-2 rounded-xl">
-              {completedCount} / 3 doses completed
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {medicationSlots.map((dose) => {
-              const completed = medications[dose.id];
-
-              return (
-                <button
-                  key={dose.id}
-                  onClick={() => toggleMedication(dose.id)}
-                  className={`text-left p-6 rounded-2xl border transition-all duration-300 ${
-                    completed
-                      ? "bg-emerald-500/10 border-emerald-500/60"
-                      : "bg-slate-950 border-slate-800 hover:border-cyan-500"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="p-3 bg-slate-800 rounded-xl">
-                      <Pill
-                        className={
-                          completed
-                            ? "text-emerald-400"
-                            : "text-cyan-400"
-                        }
-                        size={24}
-                      />
+                      </div>
                     </div>
 
-                    <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center border ${
-                        completed
-                          ? "bg-emerald-500 border-emerald-500"
-                          : "border-slate-600"
-                      }`}
-                    >
-                      {completed && <Check size={16} />}
+                    <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/5 p-5 text-center">
+                      <p className="text-xs tracking-widest text-yellow-400">
+                        YOUR TOKEN
+                      </p>
+
+                      <p className="mt-3 text-4xl font-bold">
+                        {tokenNumber}
+                      </p>
                     </div>
                   </div>
+                </div>
 
-                  <h3 className="font-semibold text-lg mt-5">
-                    {dose.label}
+                <div className="rounded-3xl border border-yellow-400/20 bg-slate-900 p-6">
+                  <h3 className="font-bold">
+                    Queue Status
                   </h3>
 
-                  <p className="text-sm text-slate-400 mt-1">
-                    Scheduled: {dose.time}
-                  </p>
+                  <div className="mt-6 text-center">
+                    <p className="text-sm text-slate-400">
+                      Your Position
+                    </p>
 
-                  <p
-                    className={`text-sm mt-4 ${
-                      completed
-                        ? "text-emerald-400"
-                        : "text-slate-500"
-                    }`}
-                  >
-                    {completed
-                      ? "✓ Dose completed"
-                      : "Tap to mark as taken"}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
+                    <p className="mt-2 text-6xl font-bold text-yellow-400">
+                      5
+                    </p>
 
-          {completedCount === 3 && (
-            <div className="mt-6 flex items-center gap-4 p-5 rounded-2xl bg-gradient-to-r from-cyan-500/15 to-teal-500/15 border border-cyan-500/30">
-              <div className="w-12 h-12 rounded-full bg-yellow-400/20 flex items-center justify-center">
-                <Trophy className="text-yellow-400" />
-              </div>
-
-              <div>
-                <h3 className="font-semibold text-cyan-300">
-                  All doses completed! 🎉
-                </h3>
-
-                <p className="text-sm text-slate-300">
-                  Great consistency! You are on a {streak}-day streak.
-                </p>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* ================= TABBED WORKSPACE ================= */}
-
-        <section className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden mb-10">
-          <div className="flex overflow-x-auto border-b border-slate-800">
-            <button
-              onClick={() => setActiveTab("consultations")}
-              className={`flex items-center gap-2 px-6 py-5 whitespace-nowrap transition ${
-                activeTab === "consultations"
-                  ? "text-cyan-400 border-b-2 border-cyan-400 bg-cyan-500/5"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <Stethoscope size={18} />
-              Consultations
-            </button>
-
-            <button
-              onClick={() => setActiveTab("prescriptions")}
-              className={`flex items-center gap-2 px-6 py-5 whitespace-nowrap transition ${
-                activeTab === "prescriptions"
-                  ? "text-cyan-400 border-b-2 border-cyan-400 bg-cyan-500/5"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <Pill size={18} />
-              Active Prescriptions
-            </button>
-
-            <button
-              onClick={() => setActiveTab("records")}
-              className={`flex items-center gap-2 px-6 py-5 whitespace-nowrap transition ${
-                activeTab === "records"
-                  ? "text-cyan-400 border-b-2 border-cyan-400 bg-cyan-500/5"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <FileText size={18} />
-              Health Records
-            </button>
-          </div>
-
-          {/* CONSULTATIONS */}
-
-          {activeTab === "consultations" && (
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-5">
-                Upcoming Consultations
-              </h2>
-
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-                <div className="flex gap-4">
-                  <div className="p-3 bg-cyan-500/10 rounded-xl h-fit">
-                    <Stethoscope className="text-cyan-400" />
+                    <p className="mt-4 text-sm text-slate-400">
+                      Approximately 20 minutes remaining
+                    </p>
                   </div>
+                </div>
+              </div>
+            </section>
 
+            {/* =================================================
+                MEDICATION TRACKER
+            ================================================== */}
+
+            <section className="mt-12">
+              <SectionHeading
+                title="Today's Medication"
+                subtitle="Mark each dose after taking your medicine."
+              />
+
+              <div className="mt-6 rounded-3xl border border-teal-400/20 bg-slate-900 p-6 md:p-8">
+
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <h3 className="font-semibold">
-                      General Health Consultation
+                    <h3 className="text-xl font-bold">
+                      Medication Adherence
                     </h3>
 
-                    <p className="text-sm text-slate-400 mt-2">
-                      Regular consultation and health follow-up.
+                    <p className="mt-1 text-sm text-slate-400">
+                      Complete all doses to maintain your medication streak.
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-slate-950 px-4 py-3">
+                    <p className="text-xs text-slate-500">
+                      TODAY'S PROGRESS
                     </p>
 
-                    <div className="flex flex-wrap gap-4 text-sm text-slate-400 mt-4">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={15} />
-                        Tomorrow
-                      </span>
-
-                      <span className="flex items-center gap-1">
-                        <Clock size={15} />
-                        10:30 AM
-                      </span>
-                    </div>
+                    <p className="mt-1 font-bold text-teal-400">
+                      {completedDoses} of 3 completed
+                    </p>
                   </div>
                 </div>
 
-                <button className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold px-5 py-3 rounded-xl transition">
-                  View Details
+                <div className="mt-8 grid gap-5 md:grid-cols-3">
+
+                  <MedicationSlot
+                    label="Morning"
+                    time="8:00 AM"
+                    checked={morningTaken}
+                    onChange={() =>
+                      setMorningTaken(!morningTaken)
+                    }
+                  />
+
+                  <MedicationSlot
+                    label="Afternoon"
+                    time="2:00 PM"
+                    checked={afternoonTaken}
+                    onChange={() =>
+                      setAfternoonTaken(!afternoonTaken)
+                    }
+                  />
+
+                  <MedicationSlot
+                    label="Evening"
+                    time="8:00 PM"
+                    checked={eveningTaken}
+                    onChange={() =>
+                      setEveningTaken(!eveningTaken)
+                    }
+                  />
+
+                </div>
+              </div>
+            </section>
+
+            {/* =================================================
+                PRESCRIPTIONS
+            ================================================== */}
+
+            <section
+              id="prescriptions"
+              className="mt-12 scroll-mt-24"
+            >
+              <SectionHeading
+                title="Active Prescriptions"
+                subtitle="View your medicines and prescription details."
+              />
+
+              <div className="mt-6 grid gap-6 lg:grid-cols-3">
+
+                <PrescriptionCard
+                  number="Prescription 01"
+                  doctor="Dr. Healthcare Provider"
+                  medicines={[
+                    "Medicine A — Morning",
+                    "Medicine B — Afternoon",
+                    "Medicine C — Evening",
+                  ]}
+                />
+
+                <PrescriptionCard
+                  number="Prescription 02"
+                  doctor="Dr. Healthcare Provider"
+                  medicines={[
+                    "Medicine D — Morning",
+                    "Medicine E — Night",
+                  ]}
+                />
+
+                <button
+                  onClick={() =>
+                    navigate("/upload-prescription")
+                  }
+                  className="flex min-h-[280px] flex-col items-center justify-center rounded-3xl border-2 border-dashed border-violet-400/30 bg-violet-400/5 p-6 text-center transition hover:border-violet-400 hover:bg-violet-400/10"
+                >
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-400/10 text-violet-400">
+                    <Upload size={30} />
+                  </div>
+
+                  <h3 className="mt-5 text-lg font-bold">
+                    Upload Prescription
+                  </h3>
+
+                  <p className="mt-2 text-sm text-slate-400">
+                    Upload a handwritten or digital prescription.
+                  </p>
+
+                  <span className="mt-5 text-sm font-semibold text-violet-400">
+                    Upload Now →
+                  </span>
                 </button>
+
               </div>
-            </div>
-          )}
+            </section>
 
-          {/* PRESCRIPTIONS */}
+            {/* =================================================
+                HEALTH RECORDS
+            ================================================== */}
 
-          {activeTab === "prescriptions" && (
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-5">
-                Active Prescriptions
-              </h2>
+            <section
+              id="records"
+              className="mt-12 scroll-mt-24"
+            >
+              <SectionHeading
+                title="Health Records"
+                subtitle="Access your important medical reports and documents."
+              />
 
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5">
-                <div className="flex justify-between gap-4">
-                  <div>
-                    <h3 className="font-semibold">
-                      Current Prescription
-                    </h3>
+              <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
 
-                    <p className="text-sm text-slate-400 mt-2">
-                      Follow the dosage instructions provided by your healthcare professional.
-                    </p>
-                  </div>
+                <RecordCard
+                  icon={<FileText size={26} />}
+                  title="Blood Test"
+                  date="Recent report"
+                />
 
-                  <Pill className="text-teal-400 flex-shrink-0" />
-                </div>
+                <RecordCard
+                  icon={<HeartPulse size={26} />}
+                  title="Health Report"
+                  date="View details"
+                />
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                  <div className="bg-slate-900 rounded-xl p-4">
-                    <p className="text-xs text-slate-500">
-                      Frequency
-                    </p>
+                <RecordCard
+                  icon={<FileText size={26} />}
+                  title="Previous Prescription"
+                  date="View prescription"
+                />
 
-                    <p className="mt-2 font-medium">
-                      As prescribed
-                    </p>
-                  </div>
+                <RecordCard
+                  icon={<FileText size={26} />}
+                  title="Medical Documents"
+                  date="View all files"
+                />
 
-                  <div className="bg-slate-900 rounded-xl p-4">
-                    <p className="text-xs text-slate-500">
-                      Status
-                    </p>
-
-                    <p className="mt-2 font-medium text-emerald-400">
-                      Active
-                    </p>
-                  </div>
-
-                  <div className="bg-slate-900 rounded-xl p-4">
-                    <p className="text-xs text-slate-500">
-                      Next Dose
-                    </p>
-
-                    <p className="mt-2 font-medium">
-                      Check schedule
-                    </p>
-                  </div>
-                </div>
               </div>
-            </div>
-          )}
+            </section>
 
-          {/* HEALTH RECORDS */}
+            {/* =================================================
+                MEDICAL HISTORY
+            ================================================== */}
 
-          {activeTab === "records" && (
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-5">
-                Health Records
-              </h2>
+            <section
+              id="history"
+              className="mt-12 scroll-mt-24"
+            >
+              <SectionHeading
+                title="Medical History"
+                subtitle="A timeline of your healthcare journey."
+              />
 
-              <div className="space-y-3">
-                {[
-                  {
-                    name: "Blood Test Report",
-                    date: "15 Aug 2026",
-                  },
-                  {
-                    name: "Previous Prescription",
-                    date: "10 Aug 2026",
-                  },
-                  {
-                    name: "Health Checkup Summary",
-                    date: "02 Aug 2026",
-                  },
-                ].map((record) => (
-                  <div
-                    key={record.name}
-                    className="bg-slate-950 border border-slate-800 hover:border-cyan-500/50 rounded-xl p-4 flex items-center justify-between transition"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="p-2 bg-cyan-500/10 rounded-lg">
-                        <FileText className="text-cyan-400" />
+              <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900 p-6 md:p-8">
+
+                <TimelineItem
+                  title="Previous Consultation"
+                  date="Healthcare Record"
+                  text="Past consultation information will appear here."
+                />
+
+                <TimelineItem
+                  title="Prescription Added"
+                  date="Healthcare Record"
+                  text="Your previous prescriptions will be available here."
+                />
+
+                <TimelineItem
+                  title="Medical Report Uploaded"
+                  date="Healthcare Record"
+                  text="Your uploaded health reports will appear here."
+                  last
+                />
+
+              </div>
+            </section>
+
+            {/* =================================================
+                EMERGENCY SOS
+            ================================================== */}
+
+            <section
+              id="emergency"
+              className="mt-16 pb-10 scroll-mt-24"
+            >
+              <div className="relative overflow-hidden rounded-[2rem] border-2 border-red-500 bg-slate-900 p-6 shadow-[0_0_30px_rgba(239,68,68,0.35),0_0_80px_rgba(239,68,68,0.15)] md:p-10">
+
+                <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-red-500/20 blur-3xl" />
+
+                <div className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-orange-500/10 blur-3xl" />
+
+                <div className="relative z-10">
+
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500 text-white shadow-[0_0_30px_rgba(239,68,68,0.7)]">
+                          <ShieldAlert size={34} />
+                        </div>
+
+                        <div>
+                          <p className="text-sm font-bold tracking-[0.25em] text-red-400">
+                            EMERGENCY SERVICES
+                          </p>
+
+                          <h2 className="mt-1 text-3xl font-black text-white md:text-4xl">
+                            Need Help Immediately?
+                          </h2>
+                        </div>
                       </div>
 
-                      <div>
-                        <h3 className="font-medium">
-                          {record.name}
-                        </h3>
-
-                        <p className="text-sm text-slate-500">
-                          {record.date}
-                        </p>
-                      </div>
+                      <p className="mt-5 max-w-2xl leading-7 text-slate-300">
+                        Activate SOS to alert your emergency contacts,
+                        share your location and quickly access emergency
+                        healthcare assistance.
+                      </p>
                     </div>
 
-                    <button className="flex items-center gap-1 text-cyan-400 hover:text-cyan-300 text-sm">
-                      View
-                      <ArrowRight size={15} />
+                    {/* BIG SOS BUTTON */}
+
+                    <button
+                      onClick={handleSOS}
+                      className="group relative mx-auto lg:mx-0"
+                    >
+                      <div className="absolute inset-0 animate-ping rounded-full bg-red-500 opacity-30" />
+
+                      <div className="relative flex h-36 w-36 items-center justify-center rounded-full border-8 border-red-300 bg-red-600 text-3xl font-black text-white shadow-[0_0_35px_rgba(239,68,68,0.8)] transition duration-300 group-hover:scale-110">
+                        SOS
+                      </div>
                     </button>
                   </div>
-                ))}
+
+                  {/* EMERGENCY FEATURES */}
+
+                  <div className="mt-10 grid gap-4 sm:grid-cols-3">
+
+                    <EmergencyFeature
+                      icon={<Users size={20} />}
+                      text="Alert Emergency Contacts"
+                    />
+
+                    <EmergencyFeature
+                      icon={<MapPin size={20} />}
+                      text="Share Live Location"
+                    />
+
+                    <EmergencyFeature
+                      icon={<Ambulance size={20} />}
+                      text="Request Ambulance"
+                    />
+
+                  </div>
+
+                </div>
               </div>
-            </div>
-          )}
-        </section>
+            </section>
 
-        {/* ================= HELP SECTION ================= */}
-
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <div className="flex items-center gap-3">
-              <Phone className="text-cyan-400" />
-
-              <div>
-                <h3 className="font-semibold">
-                  Need Help?
-                </h3>
-
-                <p className="text-sm text-slate-400">
-                  Contact the healthcare support team.
-                </p>
-              </div>
-            </div>
           </div>
+        </main>
+      </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <div className="flex items-center gap-3">
-              <MapPin className="text-teal-400" />
-
-              <div>
-                <h3 className="font-semibold">
-                  Find Healthcare Services
-                </h3>
-
-                <p className="text-sm text-slate-400">
-                  Locate nearby healthcare support and facilities.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      {/* ================= CELEBRATION MODAL ================= */}
+      {/* =====================================================
+          MEDICATION CELEBRATION MODAL
+      ====================================================== */}
 
       {showCelebration && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-md bg-slate-900 border border-cyan-500/30 rounded-3xl p-8 text-center shadow-2xl">
-            <button
-              onClick={() => setShowCelebration(false)}
-              className="absolute right-4 top-4 text-slate-400 hover:text-white"
-            >
-              <X size={22} />
-            </button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-5 backdrop-blur-sm">
 
-            <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-yellow-300 to-orange-500 flex items-center justify-center shadow-lg">
-              <Trophy
-                className="text-slate-950"
-                size={50}
-              />
+          <div className="w-full max-w-md rounded-3xl border-2 border-yellow-400 bg-slate-900 p-8 text-center shadow-[0_0_60px_rgba(250,204,21,0.25)]">
+
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-yellow-400/10 text-yellow-400">
+              <Trophy size={42} />
             </div>
 
-            <h2 className="text-3xl font-bold mt-6">
-              Fantastic Job, {patientName}! 🎉
+            <h2 className="mt-6 text-3xl font-bold">
+              Great Job,{" "}
+              <span className="text-yellow-400">
+                {patientName}
+              </span>
+              ! 🎉
             </h2>
 
-            <p className="text-slate-400 mt-3">
-              You completed all your scheduled medication doses for today.
+            <p className="mt-4 text-slate-400">
+              You completed all your scheduled medication
+              doses for today.
             </p>
 
-            <div className="mt-6 p-5 bg-slate-950 border border-slate-800 rounded-2xl">
-              <p className="text-sm text-slate-400">
-                Current Medication Streak
+            <div className="mt-6 rounded-2xl bg-slate-950 p-4">
+              <p className="text-xs tracking-widest text-slate-500">
+                MEDICATION STREAK
               </p>
 
-              <p className="text-4xl font-bold text-cyan-400 mt-2">
-                {streak} Days 🔥
+              <p className="mt-2 text-3xl font-bold text-yellow-400">
+                🔥 1 DAY
               </p>
             </div>
 
             <button
               onClick={() => setShowCelebration(false)}
-              className="w-full mt-6 bg-cyan-500 hover:bg-cyan-400 text-slate-950 py-3 rounded-xl font-semibold transition"
+              className="mt-6 w-full rounded-xl bg-yellow-400 py-3 font-bold text-slate-950 transition hover:scale-[1.02]"
             >
               Continue
             </button>
+
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+
+/* =========================================================
+   SIDEBAR BUTTON
+========================================================= */
+
+function SidebarButton({ icon, text, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-400 transition hover:bg-cyan-400/10 hover:text-cyan-400"
+    >
+      {icon}
+      {text}
+    </button>
+  );
+}
+
+
+/* =========================================================
+   DASHBOARD CARD
+========================================================= */
+
+function DashboardCard({
+  icon,
+  color,
+  glow,
+  children,
+}) {
+  return (
+    <div
+      className="relative min-h-[240px] overflow-hidden rounded-3xl bg-slate-900 p-6 transition duration-300 hover:-translate-y-1"
+      style={{
+        border: `1px solid ${color}`,
+        boxShadow: `0 0 12px ${glow}, 0 0 30px ${glow}`,
+      }}
+    >
+      <div
+        className="absolute -right-8 -top-8 h-32 w-32 rounded-full blur-3xl"
+        style={{
+          background: glow,
+        }}
+      />
+
+      <div className="relative z-10">
+
+        <div
+          className="flex h-12 w-12 items-center justify-center rounded-xl"
+          style={{
+            background: glow,
+            color,
+          }}
+        >
+          {icon}
+        </div>
+
+        <div className="mt-5">
+          {children}
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+
+/* =========================================================
+   SECTION HEADING
+========================================================= */
+
+function SectionHeading({ title, subtitle }) {
+  return (
+    <div>
+      <h2 className="text-2xl font-bold">
+        {title}
+      </h2>
+
+      <p className="mt-2 text-slate-400">
+        {subtitle}
+      </p>
+    </div>
+  );
+}
+
+
+/* =========================================================
+   QUICK ACTION
+========================================================= */
+
+function QuickAction({
+  icon,
+  title,
+  text,
+  onClick,
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="group rounded-2xl border border-slate-800 bg-slate-900 p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400 hover:bg-cyan-400/5"
+    >
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-400 transition group-hover:bg-cyan-400 group-hover:text-slate-950">
+        {icon}
+      </div>
+
+      <h3 className="mt-5 font-bold">
+        {title}
+      </h3>
+
+      <p className="mt-2 text-sm text-slate-400">
+        {text}
+      </p>
+
+      <div className="mt-5 flex items-center gap-1 text-sm font-semibold text-cyan-400">
+        Open
+        <ChevronRight size={16} />
+      </div>
+    </button>
+  );
+}
+
+
+/* =========================================================
+   APPOINTMENT INFO
+========================================================= */
+
+function AppointmentInfo({
+  icon,
+  label,
+  value,
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl bg-slate-950 p-4">
+      <div className="text-cyan-400">
+        {icon}
+      </div>
+
+      <div>
+        <p className="text-xs text-slate-500">
+          {label}
+        </p>
+
+        <p className="mt-1 text-sm font-semibold">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+
+/* =========================================================
+   MEDICATION SLOT
+========================================================= */
+
+function MedicationSlot({
+  label,
+  time,
+  checked,
+  onChange,
+}) {
+  return (
+    <button
+      onClick={onChange}
+      className={`
+        flex items-center justify-between rounded-2xl
+        border p-5 text-left transition-all duration-300
+
+        ${
+          checked
+            ? "border-teal-400 bg-teal-400/10"
+            : "border-slate-700 bg-slate-950 hover:border-teal-400/60"
+        }
+      `}
+    >
+      <div>
+        <p className="font-semibold">
+          {label}
+        </p>
+
+        <p className="mt-1 text-sm text-slate-500">
+          {time}
+        </p>
+      </div>
+
+      <div
+        className={`
+          flex h-8 w-8 items-center justify-center
+          rounded-full border-2
+
+          ${
+            checked
+              ? "border-teal-400 bg-teal-400 text-slate-950"
+              : "border-slate-600"
+          }
+        `}
+      >
+        {checked && <Check size={18} />}
+      </div>
+    </button>
+  );
+}
+
+
+/* =========================================================
+   PRESCRIPTION CARD
+========================================================= */
+
+function PrescriptionCard({
+  number,
+  doctor,
+  medicines,
+}) {
+  return (
+    <div className="rounded-3xl border border-violet-400/20 bg-slate-900 p-6">
+
+      <div className="flex items-center justify-between">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-400/10 text-violet-400">
+          <FileText size={24} />
+        </div>
+
+        <span className="text-xs text-slate-500">
+          Active
+        </span>
+      </div>
+
+      <h3 className="mt-5 font-bold">
+        {number}
+      </h3>
+
+      <p className="mt-1 text-sm text-slate-400">
+        {doctor}
+      </p>
+
+      <div className="mt-5 space-y-3">
+        {medicines.map((medicine, index) => (
+          <div
+            key={index}
+            className="flex items-center gap-3 text-sm text-slate-300"
+          >
+            <CheckCircle2
+              size={16}
+              className="text-violet-400"
+            />
+
+            {medicine}
+          </div>
+        ))}
+      </div>
+
+      <button className="mt-6 text-sm font-semibold text-violet-400 hover:text-violet-300">
+        View Full Prescription →
+      </button>
+    </div>
+  );
+}
+
+
+/* =========================================================
+   RECORD CARD
+========================================================= */
+
+function RecordCard({
+  icon,
+  title,
+  date,
+}) {
+  return (
+    <button className="rounded-2xl border border-slate-800 bg-slate-900 p-5 text-left transition hover:border-cyan-400 hover:bg-cyan-400/5">
+
+      <div className="text-cyan-400">
+        {icon}
+      </div>
+
+      <h3 className="mt-5 font-semibold">
+        {title}
+      </h3>
+
+      <p className="mt-2 text-sm text-slate-500">
+        {date}
+      </p>
+
+    </button>
+  );
+}
+
+
+/* =========================================================
+   TIMELINE ITEM
+========================================================= */
+
+function TimelineItem({
+  title,
+  date,
+  text,
+  last,
+}) {
+  return (
+    <div className="relative flex gap-5 pb-8">
+
+      {!last && (
+        <div className="absolute left-3 top-7 h-full w-px bg-slate-700" />
+      )}
+
+      <div className="relative z-10 mt-1 h-7 w-7 rounded-full border-4 border-cyan-400 bg-slate-900" />
+
+      <div>
+        <p className="font-semibold">
+          {title}
+        </p>
+
+        <p className="mt-1 text-xs text-cyan-400">
+          {date}
+        </p>
+
+        <p className="mt-3 text-sm text-slate-400">
+          {text}
+        </p>
+      </div>
+
+    </div>
+  );
+}
+
+
+/* =========================================================
+   EMERGENCY FEATURE
+========================================================= */
+
+function EmergencyFeature({
+  icon,
+  text,
+}) {
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-red-400/20 bg-red-500/5 px-4 py-4 text-sm text-red-200">
+
+      <div className="text-red-400">
+        {icon}
+      </div>
+
+      {text}
+
     </div>
   );
 }
