@@ -9,13 +9,15 @@ import {
   Send,
   User,
   MapPin,
+  PhoneCall,
+  RefreshCw,
 } from "lucide-react";
 import Peer from "peerjs";
 
 const SHARED_CHAT_KEY = "telehealth_active_consultation_chat";
 
 export default function VideoConsult({
-  roomName = "Consultation-T001",
+  roomName = "T001",
   userName = "Patient",
   patientDetails = {
     name: "Rahul Das",
@@ -31,14 +33,25 @@ export default function VideoConsult({
   const [callDuration, setCallDuration] = useState(0);
   const [newMessage, setNewMessage] = useState("");
   const [peerConnected, setPeerConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState(
+    "Initializing WebRTC...",
+  );
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const mediaStreamRef = useRef(null);
   const peerInstanceRef = useRef(null);
+  const activeCallRef = useRef(null);
   const chatEndRef = useRef(null);
 
   const isDoctor = userName.includes("Dr.") || userName.includes("Doctor");
+
+  // Standardized Clean Peer IDs
+  const cleanRoom = (roomName || "room1")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+  const myPeerId = isDoctor ? `doc-${cleanRoom}` : `pat-${cleanRoom}`;
+  const targetPeerId = isDoctor ? `pat-${cleanRoom}` : `doc-${cleanRoom}`;
 
   const defaultChat = [
     {
@@ -54,15 +67,19 @@ export default function VideoConsult({
     return saved ? JSON.parse(saved) : defaultChat;
   });
 
-  // 1. True WebRTC Peer-to-Peer Cross-Device Video
+  // 1. WebRTC Peer Connection with Google STUN Servers (Firewall Traversal)
   useEffect(() => {
     let peer;
 
-    async function initP2PCall() {
+    async function setupMediaAndPeer() {
       try {
-        // Grab local camera
+        setConnectionStatus("Accessing camera & microphone...");
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: {
+            facingMode: "user",
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+          },
           audio: true,
         });
         mediaStreamRef.current = stream;
@@ -70,50 +87,56 @@ export default function VideoConsult({
           localVideoRef.current.srcObject = stream;
         }
 
-        // Initialize PeerJS Cloud Signaling (Free, Zero Logins)
-        const myPeerId = isDoctor
-          ? `doctor-${roomName.toLowerCase()}`
-          : `patient-${roomName.toLowerCase()}`;
-        const targetPeerId = isDoctor
-          ? `patient-${roomName.toLowerCase()}`
-          : `doctor-${roomName.toLowerCase()}`;
+        setConnectionStatus("Connecting to STUN signaling server...");
 
-        peer = new Peer(myPeerId);
+        // Connect with Google & Twilio STUN Servers (Pierces 4G & Campus Wi-Fi)
+        peer = new Peer(myPeerId, {
+          config: {
+            iceServers: [
+              { urls: "stun:stun.l.google.com:19302" },
+              { urls: "stun:stun1.l.google.com:19302" },
+              { urls: "stun:global.stun.twilio.com:3478" },
+            ],
+          },
+        });
         peerInstanceRef.current = peer;
 
-        // Answer incoming calls from the other device
+        peer.on("open", (id) => {
+          setConnectionStatus(
+            `Ready. Waiting for ${isDoctor ? "Patient" : "Doctor"}...`,
+          );
+          // Auto-attempt call after 1.5s
+          setTimeout(() => initiateCall(stream), 1500);
+        });
+
+        // Answer incoming calls
         peer.on("call", (call) => {
+          activeCallRef.current = call;
           call.answer(stream);
           call.on("stream", (remoteStream) => {
             if (remoteVideoRef.current) {
               remoteVideoRef.current.srcObject = remoteStream;
               setPeerConnected(true);
+              setConnectionStatus("Direct P2P Video Connected");
             }
           });
         });
 
-        // If patient, call the doctor
-        peer.on("open", () => {
-          if (!isDoctor) {
-            setTimeout(() => {
-              const call = peer.call(targetPeerId, stream);
-              if (call) {
-                call.on("stream", (remoteStream) => {
-                  if (remoteVideoRef.current) {
-                    remoteVideoRef.current.srcObject = remoteStream;
-                    setPeerConnected(true);
-                  }
-                });
-              }
-            }, 1000);
+        peer.on("error", (err) => {
+          console.warn("PeerJS Warning:", err.type);
+          if (err.type === "peer-unavailable") {
+            setConnectionStatus(
+              `Waiting for ${isDoctor ? "Patient" : "Doctor"} to enter room...`,
+            );
           }
         });
       } catch (err) {
-        console.warn("Camera or Peer error:", err);
+        console.warn("Camera Error:", err.message);
+        setConnectionStatus("Camera access restricted");
       }
     }
 
-    initP2PCall();
+    setupMediaAndPeer();
 
     const timer = setInterval(() => setCallDuration((d) => d + 1), 1000);
 
@@ -126,7 +149,27 @@ export default function VideoConsult({
       }
       clearInterval(timer);
     };
-  }, [isDoctor, roomName]);
+  }, [myPeerId, isDoctor]);
+
+  // Manual / Auto Call Trigger
+  const initiateCall = (localStream) => {
+    const stream = localStream || mediaStreamRef.current;
+    if (!peerInstanceRef.current || !stream) return;
+
+    setConnectionStatus(`Dialing ${isDoctor ? "Patient" : "Doctor"}...`);
+    const call = peerInstanceRef.current.call(targetPeerId, stream);
+
+    if (call) {
+      activeCallRef.current = call;
+      call.on("stream", (remoteStream) => {
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream;
+          setPeerConnected(true);
+          setConnectionStatus("Direct P2P Video Connected");
+        }
+      });
+    }
+  };
 
   // Chat Sync
   const syncChat = () => {
@@ -217,10 +260,8 @@ export default function VideoConsult({
               <span>P2P ENCRYPTED TELEHEALTH SESSION</span>
             </div>
             <span className="text-xs font-mono text-zinc-400 hidden sm:inline">
-              Peer Status:{" "}
-              {peerConnected
-                ? "🟢 Direct Video Link Active"
-                : "🟡 Waiting for peer to join..."}
+              Status:{" "}
+              {peerConnected ? "🟢 Connected" : `🟡 ${connectionStatus}`}
             </span>
           </div>
 
@@ -243,7 +284,7 @@ export default function VideoConsult({
           {/* Main Video Screen */}
           <div className="lg:col-span-2 bg-zinc-950 p-4 flex flex-col justify-between relative">
             <div className="flex-1 relative bg-zinc-900 border border-zinc-800 flex items-center justify-center overflow-hidden">
-              {/* REMOTE VIDEO (Shows the other person's face from the other device!) */}
+              {/* REMOTE VIDEO (The other person's live stream from phone/laptop) */}
               <video
                 ref={remoteVideoRef}
                 autoPlay
@@ -251,24 +292,34 @@ export default function VideoConsult({
                 className={`w-full h-full object-cover ${peerConnected ? "block" : "hidden"}`}
               />
 
-              {/* If waiting for other device */}
+              {/* Waiting / Connecting State with Instant Connect Button */}
               {!peerConnected && (
-                <div className="flex flex-col items-center gap-2 text-zinc-400">
+                <div className="flex flex-col items-center gap-3 text-center p-6 max-w-sm">
                   <div className="w-12 h-12 rounded-full bg-emerald-900/60 border border-emerald-700 flex items-center justify-center animate-pulse">
                     <User className="w-6 h-6 text-emerald-400" />
                   </div>
-                  <strong className="font-mono text-xs uppercase">
-                    {isDoctor
-                      ? "Waiting for Patient video stream..."
-                      : "Connecting to Dr. Rakesh Mohanty..."}
-                  </strong>
-                  <span className="text-[11px] text-zinc-500 font-mono">
-                    Open this call on your other device to connect
-                  </span>
+                  <div>
+                    <strong className="font-mono text-xs uppercase text-zinc-200 block">
+                      {isDoctor
+                        ? "Waiting for Patient stream..."
+                        : "Connecting to Dr. Rakesh Mohanty..."}
+                    </strong>
+                    <span className="text-[11px] text-zinc-500 font-mono block mt-0.5">
+                      {connectionStatus}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => initiateCall()}
+                    className="mt-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-xs uppercase flex items-center gap-1.5 transition shadow-lg"
+                  >
+                    <PhoneCall className="w-3.5 h-3.5" /> Re-Connect Video
+                    Stream
+                  </button>
                 </div>
               )}
 
-              {/* LOCAL SELF-VIEW (Picture-in-Picture at bottom-right) */}
+              {/* LOCAL SELF-VIEW (Bottom-Right Picture-in-Picture) */}
               <div className="absolute bottom-4 right-4 w-36 sm:w-48 h-28 sm:h-36 bg-black border-2 border-zinc-700 shadow-2xl overflow-hidden">
                 <video
                   ref={localVideoRef}
@@ -282,7 +333,7 @@ export default function VideoConsult({
                 </span>
               </div>
 
-              {/* Patient Badge */}
+              {/* Patient Details Badge (Top-Left) */}
               <div className="absolute top-4 left-4 bg-zinc-900/90 border border-zinc-700 p-2.5 backdrop-blur-sm text-white font-mono text-xs space-y-0.5">
                 <div className="flex items-center gap-2">
                   <strong className="text-sm font-bold">
