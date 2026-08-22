@@ -1,0 +1,16 @@
+[33m4be4dfc[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/frontend[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mfrontend[m[33m)[m docs: add environment variable example template
+[33maeb84b5[m feat(final): complete full-stack end-to-end cloud database integration with supabase
+[33m471cc03[m merge: integrate backend into frontend repo
+[33me635e4c[m feat(offline): implemented demo credentials entry
+[33mbb8c9ee[m[33m ([m[1;31morigin/backend[m[33m)[m Create package.json
+[33mc257acf[m Create README.md
+[33mac74c5e[m feat(offline): implement hardware-driven offline sync daemon with live queue listener
+[33maca2007[m Create config
+[33mb9e9590[m Create route patient.js
+[33m48fa947[m Rename route to route appointment.js
+[33m88dcc9f[m Create route
+[33m550f400[m[33m ([m[1;32mmodule-voice-assistant[m[33m)[m feat: implement accessible voice assistant and multi-tier emergency SOS escalation module
+[33m75c465d[m Update app.js
+[33m8ab9e9c[m refactor(modules): convert GoogleTranslate into zero-config self-injecting component
+[33m4b7a512[m[33m ([m[1;32mmaster[m[33m)[m feat: initial commit of healthcare companion UI with patient/worker portals
+[33mec11ff1[m Create app.js
