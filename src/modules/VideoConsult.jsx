@@ -9,12 +9,13 @@ import {
   Send,
   User,
   MapPin,
-  MessageSquare,
 } from "lucide-react";
+import Peer from "peerjs";
 
 const SHARED_CHAT_KEY = "telehealth_active_consultation_chat";
 
 export default function VideoConsult({
+  roomName = "Consultation-T001",
   userName = "Patient",
   patientDetails = {
     name: "Rahul Das",
@@ -29,12 +30,21 @@ export default function VideoConsult({
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   const [newMessage, setNewMessage] = useState("");
+  const [peerConnected, setPeerConnected] = useState(false);
+
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const peerInstanceRef = useRef(null);
+  const chatEndRef = useRef(null);
+
+  const isDoctor = userName.includes("Dr.") || userName.includes("Doctor");
 
   const defaultChat = [
     {
       id: 1,
       sender: "Dr. Rakesh Mohanty",
-      text: "Namaste Rahul ji. I can see your record for Rampur Subcenter. How can I help you today?",
+      text: "Namaste. I can see your record for Rampur Subcenter. How can I help you today?",
       time: "10:55 PM",
     },
   ];
@@ -44,14 +54,13 @@ export default function VideoConsult({
     return saved ? JSON.parse(saved) : defaultChat;
   });
 
-  const localVideoRef = useRef(null);
-  const mediaStreamRef = useRef(null);
-  const chatEndRef = useRef(null);
-
-  // 1. Camera & Audio Stream
+  // 1. True WebRTC Peer-to-Peer Cross-Device Video
   useEffect(() => {
-    async function startCamera() {
+    let peer;
+
+    async function initP2PCall() {
       try {
+        // Grab local camera
         const stream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true,
@@ -60,23 +69,66 @@ export default function VideoConsult({
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
+
+        // Initialize PeerJS Cloud Signaling (Free, Zero Logins)
+        const myPeerId = isDoctor
+          ? `doctor-${roomName.toLowerCase()}`
+          : `patient-${roomName.toLowerCase()}`;
+        const targetPeerId = isDoctor
+          ? `patient-${roomName.toLowerCase()}`
+          : `doctor-${roomName.toLowerCase()}`;
+
+        peer = new Peer(myPeerId);
+        peerInstanceRef.current = peer;
+
+        // Answer incoming calls from the other device
+        peer.on("call", (call) => {
+          call.answer(stream);
+          call.on("stream", (remoteStream) => {
+            if (remoteVideoRef.current) {
+              remoteVideoRef.current.srcObject = remoteStream;
+              setPeerConnected(true);
+            }
+          });
+        });
+
+        // If patient, call the doctor
+        peer.on("open", () => {
+          if (!isDoctor) {
+            setTimeout(() => {
+              const call = peer.call(targetPeerId, stream);
+              if (call) {
+                call.on("stream", (remoteStream) => {
+                  if (remoteVideoRef.current) {
+                    remoteVideoRef.current.srcObject = remoteStream;
+                    setPeerConnected(true);
+                  }
+                });
+              }
+            }, 1000);
+          }
+        });
       } catch (err) {
-        console.warn("Camera running in emulator:", err.message);
+        console.warn("Camera or Peer error:", err);
       }
     }
-    startCamera();
+
+    initP2PCall();
 
     const timer = setInterval(() => setCallDuration((d) => d + 1), 1000);
 
     return () => {
       if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      if (peerInstanceRef.current) {
+        peerInstanceRef.current.destroy();
       }
       clearInterval(timer);
     };
-  }, []);
+  }, [isDoctor, roomName]);
 
-  // 2. Real-Time Cross-Tab Chat Synchronizer (Fast 500ms Bus)
+  // Chat Sync
   const syncChat = () => {
     const saved = localStorage.getItem(SHARED_CHAT_KEY);
     if (saved) {
@@ -87,19 +139,9 @@ export default function VideoConsult({
   };
 
   useEffect(() => {
-    if (!localStorage.getItem(SHARED_CHAT_KEY)) {
-      localStorage.setItem(SHARED_CHAT_KEY, JSON.stringify(defaultChat));
-    }
     syncChat();
-
-    const handleStorage = (e) => {
-      if (!e.key || e.key === SHARED_CHAT_KEY) {
-        syncChat();
-      }
-    };
-
+    const handleStorage = () => syncChat();
     window.addEventListener("storage", handleStorage);
-    // 500ms fast-poll keeps both tabs 100% in sync
     const interval = setInterval(syncChat, 500);
 
     return () => {
@@ -108,7 +150,6 @@ export default function VideoConsult({
     };
   }, []);
 
-  // Auto-scroll on new message
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
@@ -131,19 +172,16 @@ export default function VideoConsult({
     }
   };
 
-  // Broadcast Message to Both Tabs
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
-    // Read latest from storage to prevent race condition
     const currentList = JSON.parse(
       localStorage.getItem(SHARED_CHAT_KEY) || JSON.stringify(defaultChat),
     );
-
     const messageObj = {
       id: Date.now(),
-      sender: userName || (patientDetails?.name ? patientDetails.name : "User"),
+      sender: userName,
       text: newMessage.trim(),
       time: new Date().toLocaleTimeString([], {
         hour: "2-digit",
@@ -155,6 +193,11 @@ export default function VideoConsult({
     localStorage.setItem(SHARED_CHAT_KEY, JSON.stringify(updated));
     setChatMessages(updated);
     setNewMessage("");
+  };
+
+  const handleEndCall = () => {
+    localStorage.removeItem(SHARED_CHAT_KEY);
+    onClose();
   };
 
   const formatTime = (secs) => {
@@ -171,10 +214,13 @@ export default function VideoConsult({
           <div className="flex items-center gap-3">
             <div className="p-1.5 bg-emerald-700 text-white font-mono text-xs flex items-center gap-1.5">
               <Activity className="w-4 h-4 text-emerald-300" />
-              <span>ENCRYPTED TELEHEALTH SESSION</span>
+              <span>P2P ENCRYPTED TELEHEALTH SESSION</span>
             </div>
             <span className="text-xs font-mono text-zinc-400 hidden sm:inline">
-              Session: Primary Health Subcenter Network
+              Peer Status:{" "}
+              {peerConnected
+                ? "🟢 Direct Video Link Active"
+                : "🟡 Waiting for peer to join..."}
             </span>
           </div>
 
@@ -184,62 +230,61 @@ export default function VideoConsult({
               <span>DURATION: {formatTime(callDuration)}</span>
             </div>
             <button
-              onClick={onClose}
+              onClick={handleEndCall}
               className="p-1.5 hover:bg-zinc-800 text-zinc-400 hover:text-white transition"
-              title="Close Teleconsult"
             >
               ✕
             </button>
           </div>
         </div>
 
-        {/* Workspace */}
+        {/* Video Stage */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-px bg-zinc-800 overflow-hidden">
-          {/* Main Video View (Left 2 Columns) */}
+          {/* Main Video Screen */}
           <div className="lg:col-span-2 bg-zinc-950 p-4 flex flex-col justify-between relative">
             <div className="flex-1 relative bg-zinc-900 border border-zinc-800 flex items-center justify-center overflow-hidden">
+              {/* REMOTE VIDEO (Shows the other person's face from the other device!) */}
               <video
-                ref={localVideoRef}
+                ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                muted
-                className={`w-full h-full object-cover ${isVideoOff ? "hidden" : "block"}`}
+                className={`w-full h-full object-cover ${peerConnected ? "block" : "hidden"}`}
               />
 
-              {isVideoOff && (
-                <div className="flex flex-col items-center gap-2 text-zinc-500">
-                  <VideoOff className="w-12 h-12" />
-                  <span className="font-mono text-xs uppercase">
-                    Camera Muted
+              {/* If waiting for other device */}
+              {!peerConnected && (
+                <div className="flex flex-col items-center gap-2 text-zinc-400">
+                  <div className="w-12 h-12 rounded-full bg-emerald-900/60 border border-emerald-700 flex items-center justify-center animate-pulse">
+                    <User className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <strong className="font-mono text-xs uppercase">
+                    {isDoctor
+                      ? "Waiting for Patient video stream..."
+                      : "Connecting to Dr. Rakesh Mohanty..."}
+                  </strong>
+                  <span className="text-[11px] text-zinc-500 font-mono">
+                    Open this call on your other device to connect
                   </span>
                 </div>
               )}
 
-              {/* Attending Doctor Badge (Top Right) */}
-              <div className="absolute top-4 right-4 bg-zinc-900/90 border border-zinc-700 p-3 shadow-lg backdrop-blur-sm text-white">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-emerald-700 flex items-center justify-center font-bold font-mono text-xs">
-                    DR
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-bold font-mono">
-                      Dr. Rakesh Mohanty
-                    </h5>
-                    <span className="text-[10px] text-emerald-400 block font-mono">
-                      Attending Medical Officer
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-2 pt-2 border-t border-zinc-800 flex justify-between text-[10px] font-mono text-zinc-400">
-                  <span>Audio: HD</span>
-                  <span className="text-emerald-400">✓ Connected</span>
-                </div>
+              {/* LOCAL SELF-VIEW (Picture-in-Picture at bottom-right) */}
+              <div className="absolute bottom-4 right-4 w-36 sm:w-48 h-28 sm:h-36 bg-black border-2 border-zinc-700 shadow-2xl overflow-hidden">
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className={`w-full h-full object-cover ${isVideoOff ? "hidden" : "block"}`}
+                />
+                <span className="absolute bottom-1 left-1.5 text-[9px] font-mono bg-black/70 text-white px-1">
+                  You ({userName.split(" ")[0]})
+                </span>
               </div>
 
-              {/* Patient Badge (Bottom Left) */}
-              <div className="absolute bottom-4 left-4 bg-zinc-900/90 border border-zinc-700 p-3 backdrop-blur-sm text-white font-mono text-xs space-y-1">
+              {/* Patient Badge */}
+              <div className="absolute top-4 left-4 bg-zinc-900/90 border border-zinc-700 p-2.5 backdrop-blur-sm text-white font-mono text-xs space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <User className="w-3.5 h-3.5 text-emerald-400" />
                   <strong className="text-sm font-bold">
                     {patientDetails.name}
                   </strong>
@@ -247,14 +292,14 @@ export default function VideoConsult({
                     {patientDetails.token || "T-001"}
                   </span>
                 </div>
-                <div className="text-[11px] text-zinc-400 flex items-center gap-1">
-                  <MapPin className="w-3 h-3 text-red-400" /> Village:{" "}
+                <div className="text-[10px] text-zinc-400 flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-red-400" />{" "}
                   {patientDetails.village}
                 </div>
               </div>
             </div>
 
-            {/* Bottom Call Controls */}
+            {/* Bottom Controls */}
             <div className="pt-4 flex justify-center items-center gap-4">
               <button
                 onClick={toggleMic}
@@ -289,9 +334,8 @@ export default function VideoConsult({
               </button>
 
               <button
-                onClick={onClose}
+                onClick={handleEndCall}
                 className="px-6 py-3.5 bg-red-600 hover:bg-red-700 text-white font-mono text-xs uppercase tracking-wider flex items-center gap-2 transition"
-                title="End Consultation"
               >
                 <PhoneOff className="w-5 h-5" />
                 <span>End Consultation</span>
@@ -299,82 +343,52 @@ export default function VideoConsult({
             </div>
           </div>
 
-          {/* Right Synchronized Clinical Chat (Right Column) */}
+          {/* Right Synced Chat */}
           <div className="bg-zinc-900 border-l border-zinc-800 flex flex-col justify-between text-white h-full">
-            {/* Context Header */}
-            <div className="p-4 border-b border-zinc-800 space-y-2 shrink-0">
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-bold block">
-                  Live Consultation Ledger
-                </span>
-                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950 px-2 py-0.5 border border-emerald-800">
-                  ● Realtime Live
-                </span>
-              </div>
-
-              <div className="bg-zinc-950 p-3 border border-zinc-800 text-xs font-mono space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">PATIENT:</span>
-                  <strong>
-                    {patientDetails.name} ({patientDetails.age}y)
-                  </strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">VILLAGE:</span>
-                  <span>{patientDetails.village}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">COMPLAINT:</span>
-                  <span className="text-emerald-400">
-                    {patientDetails.complaint}
-                  </span>
-                </div>
-              </div>
+            <div className="p-4 border-b border-zinc-800 space-y-1 shrink-0">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-bold block">
+                Live Consultation Ledger
+              </span>
+              <p className="text-[11px] text-zinc-400 font-mono">
+                Complaint: {patientDetails.complaint}
+              </p>
             </div>
 
-            {/* Live Message Stream */}
             <div className="flex-1 p-4 overflow-y-auto space-y-3 font-sans text-xs min-h-0">
-              {chatMessages.map((msg) => {
-                const isDoctor =
-                  msg.sender.includes("Dr.") ||
-                  msg.sender.includes("Doctor") ||
-                  msg.role === "doctor";
-                return (
-                  <div
-                    key={msg.id}
-                    className={`p-3 border transition ${
-                      isDoctor
-                        ? "bg-zinc-950 border-emerald-800 text-white"
-                        : "bg-emerald-950/60 border-emerald-700 text-emerald-100"
-                    }`}
-                  >
-                    <div className="flex justify-between items-center text-[10px] font-mono text-zinc-400 mb-1">
-                      <strong
-                        className={
-                          isDoctor
-                            ? "text-emerald-400 font-bold"
-                            : "text-zinc-200 font-bold"
-                        }
-                      >
-                        {msg.sender}
-                      </strong>
-                      <span>{msg.time}</span>
-                    </div>
-                    <p className="text-xs leading-relaxed">{msg.text}</p>
+              {chatMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`p-3 border ${msg.sender === userName ? "bg-emerald-950/70 border-emerald-700 ml-6 text-white" : "bg-zinc-950/80 border-zinc-800 mr-6 text-zinc-200"}`}
+                >
+                  <div className="flex justify-between items-center text-[10px] font-mono text-zinc-400 mb-1">
+                    <strong
+                      className={
+                        msg.sender === userName
+                          ? "text-emerald-400"
+                          : "text-zinc-300"
+                      }
+                    >
+                      {msg.sender}
+                    </strong>
+                    <span>{msg.time}</span>
                   </div>
-                );
-              })}
+                  <p className="text-xs">{msg.text}</p>
+                </div>
+              ))}
               <div ref={chatEndRef} />
             </div>
 
-            {/* Input Box */}
             <form
               onSubmit={handleSendMessage}
               className="p-3 border-t border-zinc-800 flex gap-2 bg-zinc-950 shrink-0"
             >
               <input
                 type="text"
-                placeholder="Type message or clinical advice..."
+                placeholder={
+                  isDoctor
+                    ? "Type clinical advice..."
+                    : "Type message for doctor..."
+                }
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 className="flex-1 bg-zinc-900 border border-zinc-700 text-white text-xs px-3 py-2.5 focus:outline-none focus:border-emerald-500 font-sans"
