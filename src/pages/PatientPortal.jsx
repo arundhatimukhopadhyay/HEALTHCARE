@@ -25,9 +25,9 @@ import {
   ShieldAlert,
   Stethoscope,
   Trophy,
-  Upload,
   User,
   Users,
+  Video,
   Volume2,
   X,
 } from "lucide-react";
@@ -42,6 +42,11 @@ export default function PatientPortal() {
   const patientName = localStorage.getItem("patientName") || "Patient";
   const tokenNumber = localStorage.getItem("tokenNumber") || "A-042";
 
+  // Short patient address
+  const patientAddress =
+    localStorage.getItem("patientAddress") ||
+    "Kolkata, West Bengal";
+
   // =========================================================
   // STATES
   // =========================================================
@@ -54,7 +59,9 @@ export default function PatientPortal() {
 
   const [showCelebration, setShowCelebration] = useState(false);
 
-  const [selectedLanguage, setSelectedLanguage] = useState("English");
+  const [selectedLanguage, setSelectedLanguage] =
+    useState("English");
+
   const [triageStarted, setTriageStarted] = useState(false);
 
   const [audioPlaying, setAudioPlaying] = useState(false);
@@ -75,20 +82,30 @@ export default function PatientPortal() {
   // =========================================================
 
   useEffect(() => {
-    if (morningTaken && afternoonTaken && eveningTaken) {
+    if (
+      morningTaken &&
+      afternoonTaken &&
+      eveningTaken
+    ) {
       setShowCelebration(true);
     }
-  }, [morningTaken, afternoonTaken, eveningTaken]);
+  }, [
+    morningTaken,
+    afternoonTaken,
+    eveningTaken,
+  ]);
 
   // =========================================================
   // SCROLL TO SECTION
   // =========================================================
 
   const scrollToSection = (id) => {
-    document.getElementById(id)?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    document
+      .getElementById(id)
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
 
     setSidebarOpen(false);
   };
@@ -142,29 +159,44 @@ export default function PatientPortal() {
     setAudioPlaying(true);
   };
 
+  // =========================================================
+  // VIDEO CONSULTANCY
+  // =========================================================
+
+  const handleVideoConsultancy = () => {
+    navigate("/video-consultancy");
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
+
       {/* =====================================================
           MOBILE HEADER
       ====================================================== */}
 
       <header className="sticky top-0 z-40 flex h-20 items-center justify-between border-b border-slate-800 bg-slate-950 px-5 lg:hidden">
         <div className="flex items-center gap-3">
+
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-400 text-slate-950">
             <Activity size={24} />
           </div>
 
           <div>
-            <h1 className="font-bold">HealthConnect</h1>
+            <h1 className="font-bold">
+              HealthConnect
+            </h1>
 
             <p className="text-xs text-slate-500">
               Patient Portal
             </p>
           </div>
+
         </div>
 
         <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
+          onClick={() =>
+            setSidebarOpen(!sidebarOpen)
+          }
           className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-700 bg-slate-900"
         >
           {sidebarOpen ? <X /> : <Menu />}
@@ -172,6 +204,7 @@ export default function PatientPortal() {
       </header>
 
       <div className="flex">
+
         {/* =====================================================
             MOBILE OVERLAY
         ====================================================== */}
@@ -206,9 +239,11 @@ export default function PatientPortal() {
             }
           `}
         >
+
           {/* LOGO */}
 
           <div className="flex h-24 items-center gap-3 border-b border-slate-800 px-6">
+
             <div
               className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-400 text-slate-950"
               style={{
@@ -220,23 +255,29 @@ export default function PatientPortal() {
             </div>
 
             <div>
-              <h1 className="font-bold">HealthConnect</h1>
+              <h1 className="font-bold">
+                HealthConnect
+              </h1>
 
               <p className="text-xs text-slate-500">
                 Patient Portal
               </p>
             </div>
+
           </div>
 
           {/* PATIENT PROFILE */}
 
           <div className="mx-4 mt-6 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4">
+
             <div className="flex items-center gap-3">
+
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-cyan-400/10 text-cyan-400">
                 <User size={22} />
               </div>
 
               <div className="min-w-0">
+
                 <p className="text-xs text-slate-500">
                   LOGGED IN AS
                 </p>
@@ -244,13 +285,17 @@ export default function PatientPortal() {
                 <p className="truncate font-semibold">
                   {patientName}
                 </p>
+
               </div>
+
             </div>
+
           </div>
 
           {/* NAVIGATION */}
 
           <nav className="flex-1 space-y-2 p-4">
+
             <SidebarButton
               icon={<Home size={20} />}
               text="Dashboard"
@@ -297,17 +342,27 @@ export default function PatientPortal() {
             />
 
             <SidebarButton
+              icon={<Video size={20} />}
+              text="Video Consultancy"
+              onClick={() =>
+                scrollToSection("video-consultancy")
+              }
+            />
+
+            <SidebarButton
               icon={<ShieldAlert size={20} />}
               text="Emergency SOS"
               onClick={() =>
                 scrollToSection("emergency")
               }
             />
+
           </nav>
 
           {/* LOGOUT */}
 
           <div className="border-t border-slate-800 p-4">
+
             <button
               onClick={handleLogout}
               className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-slate-400 transition hover:bg-red-500/10 hover:text-red-400"
@@ -315,7 +370,9 @@ export default function PatientPortal() {
               <LogOut size={20} />
               Logout
             </button>
+
           </div>
+
         </aside>
 
         {/* =====================================================
@@ -323,6 +380,7 @@ export default function PatientPortal() {
         ====================================================== */}
 
         <main className="min-w-0 flex-1">
+
           <div className="mx-auto max-w-7xl px-5 py-8 md:px-8 md:py-10">
 
             {/* =================================================
@@ -330,22 +388,44 @@ export default function PatientPortal() {
             ================================================== */}
 
             <section>
+
               <p className="text-sm font-semibold tracking-[0.2em] text-cyan-400">
                 PATIENT DASHBOARD
               </p>
 
               <h1 className="mt-3 text-3xl font-bold md:text-5xl">
-                Welcome back,{" "}
+
+                Welcome back{" "}
+
                 <span className="text-cyan-400">
                   {patientName}
                 </span>{" "}
+
                 👋
+
               </h1>
 
+              {/* PATIENT ADDRESS */}
+
+              <div className="mt-4 flex items-center gap-2 text-sm text-slate-400">
+
+                <MapPin
+                  size={17}
+                  className="text-cyan-400"
+                />
+
+                <span>
+                  {patientAddress}
+                </span>
+
+              </div>
+
               <p className="mt-3 max-w-2xl text-slate-400">
-                Your healthcare information, appointments,
-                prescriptions and records — all in one place.
+                Your healthcare information,
+                appointments, prescriptions and
+                records — all in one place.
               </p>
+
             </section>
 
             {/* =================================================
@@ -361,6 +441,7 @@ export default function PatientPortal() {
                 color="#facc15"
                 glow="rgba(250,204,21,0.20)"
               >
+
                 <p className="text-sm font-semibold tracking-wider text-yellow-400">
                   CURRENT TOKEN
                 </p>
@@ -370,9 +451,12 @@ export default function PatientPortal() {
                 </h2>
 
                 <div className="mt-4 space-y-1 text-sm text-slate-400">
+
                   <p>
                     Queue Position:{" "}
-                    <span className="text-white">5</span>
+                    <span className="text-white">
+                      5
+                    </span>
                   </p>
 
                   <p>
@@ -381,7 +465,9 @@ export default function PatientPortal() {
                       20 mins
                     </span>
                   </p>
+
                 </div>
+
               </DashboardCard>
 
               {/* APPOINTMENT */}
@@ -391,6 +477,7 @@ export default function PatientPortal() {
                 color="#22d3ee"
                 glow="rgba(34,211,238,0.20)"
               >
+
                 <p className="text-sm font-semibold tracking-wider text-cyan-400">
                   NEXT APPOINTMENT
                 </p>
@@ -406,6 +493,7 @@ export default function PatientPortal() {
                 <p className="mt-4 text-sm text-cyan-400">
                   Dr. Healthcare Provider
                 </p>
+
               </DashboardCard>
 
               {/* PRESCRIPTIONS */}
@@ -415,6 +503,7 @@ export default function PatientPortal() {
                 color="#a78bfa"
                 glow="rgba(167,139,250,0.20)"
               >
+
                 <p className="text-sm font-semibold tracking-wider text-violet-400">
                   PRESCRIPTIONS
                 </p>
@@ -435,6 +524,7 @@ export default function PatientPortal() {
                 >
                   View Details →
                 </button>
+
               </DashboardCard>
 
               {/* MEDICATION */}
@@ -444,6 +534,7 @@ export default function PatientPortal() {
                 color="#2dd4bf"
                 glow="rgba(45,212,191,0.20)"
               >
+
                 <p className="text-sm font-semibold tracking-wider text-teal-400">
                   MEDICATION
                 </p>
@@ -457,22 +548,120 @@ export default function PatientPortal() {
                 </p>
 
                 <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-800">
+
                   <div
                     className="h-full rounded-full bg-teal-400 transition-all duration-500"
                     style={{
                       width: `${medicationProgress}%`,
                     }}
                   />
+
                 </div>
+
               </DashboardCard>
+
+            </section>
+
+            {/* =================================================
+                EMERGENCY SOS
+                MOVED ABOVE VOICE HEALTHCARE ASSISTANCE
+            ================================================== */}
+
+            <section
+              id="emergency"
+              className="mt-12 scroll-mt-24"
+            >
+
+              <div className="relative overflow-hidden rounded-[2rem] border-2 border-red-500 bg-slate-900 p-6 shadow-[0_0_30px_rgba(239,68,68,0.35),0_0_80px_rgba(239,68,68,0.15)] md:p-10">
+
+                <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-red-500/20 blur-3xl" />
+
+                <div className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-orange-500/10 blur-3xl" />
+
+                <div className="relative z-10">
+
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+
+                    <div>
+
+                      <div className="flex items-center gap-3">
+
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500 text-white shadow-[0_0_30px_rgba(239,68,68,0.7)]">
+                          <ShieldAlert size={34} />
+                        </div>
+
+                        <div>
+
+                          <p className="text-sm font-bold tracking-[0.25em] text-red-400">
+                            EMERGENCY SERVICES
+                          </p>
+
+                          <h2 className="mt-1 text-3xl font-black text-white md:text-4xl">
+                            Need Help Immediately?
+                          </h2>
+
+                        </div>
+
+                      </div>
+
+                      <p className="mt-5 max-w-2xl leading-7 text-slate-300">
+                        Activate SOS to alert your emergency
+                        contacts, share your location and quickly
+                        access emergency healthcare assistance.
+                      </p>
+
+                    </div>
+
+                    {/* BIG SOS BUTTON */}
+
+                    <button
+                      onClick={handleSOS}
+                      className="group relative mx-auto lg:mx-0"
+                    >
+
+                      <div className="absolute inset-0 animate-ping rounded-full bg-red-500 opacity-30" />
+
+                      <div className="relative flex h-36 w-36 items-center justify-center rounded-full border-8 border-red-300 bg-red-600 text-3xl font-black text-white shadow-[0_0_35px_rgba(239,68,68,0.8)] transition duration-300 group-hover:scale-110">
+                        SOS
+                      </div>
+
+                    </button>
+
+                  </div>
+
+                  {/* EMERGENCY FEATURES */}
+
+                  <div className="mt-10 grid gap-4 sm:grid-cols-3">
+
+                    <EmergencyFeature
+                      icon={<Users size={20} />}
+                      text="Alert Emergency Contacts"
+                    />
+
+                    <EmergencyFeature
+                      icon={<MapPin size={20} />}
+                      text="Share Live Location"
+                    />
+
+                    <EmergencyFeature
+                      icon={<Ambulance size={20} />}
+                      text="Request Ambulance"
+                    />
+
+                  </div>
+
+                </div>
+
+              </div>
+
             </section>
 
             {/* =================================================
                 VOICE HEALTHCARE ASSISTANCE
-                NOW ABOVE QUICK ACTIONS
             ================================================== */}
 
             <section className="mt-12">
+
               <SectionHeading
                 title="Voice Healthcare Assistance"
                 subtitle="Describe your symptoms in your preferred language or receive spoken healthcare guidance."
@@ -483,12 +672,15 @@ export default function PatientPortal() {
                 {/* VERNACULAR VOICE TRIAGE */}
 
                 <div className="rounded-3xl border border-orange-400/40 bg-orange-400/5 p-6 transition hover:border-orange-400 hover:bg-orange-400/10">
+
                   <div className="flex items-start gap-4">
+
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-400/15 text-orange-400">
                       <Mic size={28} />
                     </div>
 
                     <div>
+
                       <h3 className="text-xl font-bold text-white">
                         Vernacular Voice Triage
                       </h3>
@@ -497,10 +689,13 @@ export default function PatientPortal() {
                         Describe your symptoms in the language
                         you are most comfortable with.
                       </p>
+
                     </div>
+
                   </div>
 
                   <div className="mt-6">
+
                     <label className="text-sm font-semibold text-slate-300">
                       Select Your Language
                     </label>
@@ -508,7 +703,9 @@ export default function PatientPortal() {
                     <select
                       value={selectedLanguage}
                       onChange={(e) =>
-                        setSelectedLanguage(e.target.value)
+                        setSelectedLanguage(
+                          e.target.value
+                        )
                       }
                       className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-orange-400"
                     >
@@ -525,25 +722,29 @@ export default function PatientPortal() {
                       <option>Malayalam</option>
                       <option>Others</option>
                     </select>
+
                   </div>
 
                   <button
                     onClick={handleVoiceTriage}
                     className={`mt-5 flex w-full items-center justify-center gap-3 rounded-xl px-5 py-4 font-bold text-white transition hover:scale-[1.02]
-                      ${
-                        triageStarted
-                          ? "animate-pulse bg-red-500"
-                          : "bg-orange-500 hover:bg-orange-400"
-                      }`}
+                    ${
+                      triageStarted
+                        ? "animate-pulse bg-red-500"
+                        : "bg-orange-500 hover:bg-orange-400"
+                    }`}
                   >
+
                     <Mic size={21} />
 
                     {triageStarted
                       ? "Listening... Tap to Stop"
                       : `Speak in ${selectedLanguage}`}
+
                   </button>
 
                   <div className="mt-5 rounded-xl border border-slate-700 bg-slate-950 p-4">
+
                     <p className="text-xs tracking-wider text-slate-500">
                       VOICE TRIAGE STATUS
                     </p>
@@ -553,18 +754,23 @@ export default function PatientPortal() {
                         ? "Listening to your symptoms..."
                         : "Tap the microphone and describe what is happening."}
                     </p>
+
                   </div>
+
                 </div>
 
                 {/* AUDIO COMPANION */}
 
                 <div className="rounded-3xl border border-cyan-400/40 bg-cyan-400/5 p-6 transition hover:border-cyan-400 hover:bg-cyan-400/10">
+
                   <div className="flex items-start gap-4">
+
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-400">
                       <Volume2 size={28} />
                     </div>
 
                     <div>
+
                       <h3 className="text-xl font-bold text-white">
                         Audio Companion
                       </h3>
@@ -573,12 +779,13 @@ export default function PatientPortal() {
                         Receive spoken guidance and healthcare
                         instructions while using the application.
                       </p>
+
                     </div>
+
                   </div>
 
-                  {/* AUDIO VISUALIZER */}
-
                   <div className="mt-8 flex h-28 items-center justify-center gap-2 rounded-2xl border border-cyan-400/20 bg-slate-950">
+
                     {[6, 12, 20, 10, 16, 8].map(
                       (height, index) => (
                         <span
@@ -594,9 +801,11 @@ export default function PatientPortal() {
                         />
                       )
                     )}
+
                   </div>
 
                   <div className="mt-5 text-center">
+
                     <p className="font-semibold text-cyan-400">
                       Healthcare Audio Companion
                     </p>
@@ -606,6 +815,7 @@ export default function PatientPortal() {
                         ? "Audio guidance is playing..."
                         : "Ready to provide voice guidance"}
                     </p>
+
                   </div>
 
                   <div className="mt-6 grid grid-cols-3 gap-3">
@@ -615,7 +825,6 @@ export default function PatientPortal() {
                       className="flex flex-col items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-4 text-cyan-400 transition hover:bg-cyan-400 hover:text-slate-950"
                     >
                       <Play size={20} />
-
                       <span className="text-xs font-semibold">
                         Start
                       </span>
@@ -626,7 +835,6 @@ export default function PatientPortal() {
                       className="flex flex-col items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-3 py-4 text-slate-300 transition hover:border-cyan-400"
                     >
                       <Pause size={20} />
-
                       <span className="text-xs font-semibold">
                         Pause
                       </span>
@@ -637,15 +845,71 @@ export default function PatientPortal() {
                       className="flex flex-col items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-3 py-4 text-slate-300 transition hover:border-cyan-400"
                     >
                       <RotateCcw size={20} />
-
                       <span className="text-xs font-semibold">
                         Repeat
                       </span>
                     </button>
 
                   </div>
+
                 </div>
+
               </div>
+
+            </section>
+
+            {/* =================================================
+                VIDEO CONSULTANCY
+                UNDER VOICE HEALTHCARE ASSISTANCE
+            ================================================== */}
+
+            <section
+              id="video-consultancy"
+              className="mt-8 scroll-mt-24"
+            >
+
+              <div className="rounded-3xl border border-blue-400/30 bg-gradient-to-r from-blue-500/10 via-cyan-400/5 to-blue-500/10 p-6 md:p-8">
+
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+
+                  <div className="flex items-start gap-4">
+
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-blue-400/10 text-blue-400">
+                      <Video size={30} />
+                    </div>
+
+                    <div>
+
+                      <p className="text-sm font-semibold tracking-widest text-blue-400">
+                        ONLINE CONSULTATION
+                      </p>
+
+                      <h2 className="mt-2 text-2xl font-bold">
+                        Video Consultancy
+                      </h2>
+
+                      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                        Connect with a healthcare provider through
+                        a secure video consultation from anywhere.
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  <button
+                    onClick={handleVideoConsultancy}
+                    className="flex items-center justify-center gap-3 rounded-xl bg-blue-500 px-6 py-4 font-bold text-white transition hover:bg-blue-400 hover:scale-[1.02]"
+                  >
+                    <Video size={21} />
+                    Start Video Consultation
+                    <ChevronRight size={18} />
+                  </button>
+
+                </div>
+
+              </div>
+
             </section>
 
             {/* =================================================
@@ -653,12 +917,13 @@ export default function PatientPortal() {
             ================================================== */}
 
             <section className="mt-12">
+
               <SectionHeading
                 title="Quick Actions"
                 subtitle="Access important healthcare services quickly."
               />
 
-              <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
 
                 <QuickAction
                   icon={<CalendarDays size={28} />}
@@ -679,15 +944,6 @@ export default function PatientPortal() {
                 />
 
                 <QuickAction
-                  icon={<Upload size={28} />}
-                  title="Upload Prescription"
-                  text="Upload handwritten prescription"
-                  onClick={() =>
-                    scrollToSection("prescriptions")
-                  }
-                />
-
-                <QuickAction
                   icon={<History size={28} />}
                   title="Medical History"
                   text="View your past records"
@@ -695,7 +951,9 @@ export default function PatientPortal() {
                     scrollToSection("history")
                   }
                 />
+
               </div>
+
             </section>
 
             {/* =================================================
@@ -706,22 +964,28 @@ export default function PatientPortal() {
               id="appointment"
               className="mt-12 scroll-mt-24"
             >
+
               <SectionHeading
                 title="Current Appointment & Queue"
                 subtitle="Track your appointment and queue status."
               />
 
               <div className="mt-6 grid gap-6 lg:grid-cols-3">
+
                 <div className="rounded-3xl border border-cyan-400/20 bg-slate-900 p-6 lg:col-span-2">
 
                   <div className="flex flex-col justify-between gap-5 md:flex-row">
+
                     <div>
+
                       <div className="flex items-center gap-3">
+
                         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-400">
                           <Stethoscope size={24} />
                         </div>
 
                         <div>
+
                           <h3 className="text-xl font-bold">
                             Dr. Healthcare Provider
                           </h3>
@@ -729,7 +993,9 @@ export default function PatientPortal() {
                           <p className="text-sm text-slate-400">
                             General Consultation
                           </p>
+
                         </div>
+
                       </div>
 
                       <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -759,9 +1025,11 @@ export default function PatientPortal() {
                         />
 
                       </div>
+
                     </div>
 
                     <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/5 p-5 text-center">
+
                       <p className="text-xs tracking-widest text-yellow-400">
                         YOUR TOKEN
                       </p>
@@ -769,16 +1037,21 @@ export default function PatientPortal() {
                       <p className="mt-3 text-4xl font-bold">
                         {tokenNumber}
                       </p>
+
                     </div>
+
                   </div>
+
                 </div>
 
                 <div className="rounded-3xl border border-yellow-400/20 bg-slate-900 p-6">
+
                   <h3 className="font-bold">
                     Queue Status
                   </h3>
 
                   <div className="mt-6 text-center">
+
                     <p className="text-sm text-slate-400">
                       Your Position
                     </p>
@@ -790,9 +1063,13 @@ export default function PatientPortal() {
                     <p className="mt-4 text-sm text-slate-400">
                       Approximately 20 minutes remaining
                     </p>
+
                   </div>
+
                 </div>
+
               </div>
+
             </section>
 
             {/* =================================================
@@ -800,6 +1077,7 @@ export default function PatientPortal() {
             ================================================== */}
 
             <section className="mt-12">
+
               <SectionHeading
                 title="Today's Medication"
                 subtitle="Mark each dose after taking your medicine."
@@ -808,7 +1086,9 @@ export default function PatientPortal() {
               <div className="mt-6 rounded-3xl border border-teal-400/20 bg-slate-900 p-6 md:p-8">
 
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
                   <div>
+
                     <h3 className="text-xl font-bold">
                       Medication Adherence
                     </h3>
@@ -816,9 +1096,11 @@ export default function PatientPortal() {
                     <p className="mt-1 text-sm text-slate-400">
                       Complete all doses to maintain your medication streak.
                     </p>
+
                   </div>
 
                   <div className="rounded-xl bg-slate-950 px-4 py-3">
+
                     <p className="text-xs text-slate-500">
                       TODAY'S PROGRESS
                     </p>
@@ -826,7 +1108,9 @@ export default function PatientPortal() {
                     <p className="mt-1 font-bold text-teal-400">
                       {completedDoses} of 3 completed
                     </p>
+
                   </div>
+
                 </div>
 
                 <div className="mt-8 grid gap-5 md:grid-cols-3">
@@ -859,23 +1143,27 @@ export default function PatientPortal() {
                   />
 
                 </div>
+
               </div>
+
             </section>
 
             {/* =================================================
                 PRESCRIPTIONS
+                UPLOAD OPTION REMOVED
             ================================================== */}
 
             <section
               id="prescriptions"
               className="mt-12 scroll-mt-24"
             >
+
               <SectionHeading
                 title="Active Prescriptions"
                 subtitle="View your medicines and prescription details."
               />
 
-              <div className="mt-6 grid gap-6 lg:grid-cols-3">
+              <div className="mt-6 grid gap-6 lg:grid-cols-2">
 
                 <PrescriptionCard
                   number="Prescription 01"
@@ -896,30 +1184,8 @@ export default function PatientPortal() {
                   ]}
                 />
 
-                <button
-                  onClick={() =>
-                    navigate("/upload-prescription")
-                  }
-                  className="flex min-h-[280px] flex-col items-center justify-center rounded-3xl border-2 border-dashed border-violet-400/30 bg-violet-400/5 p-6 text-center transition hover:border-violet-400 hover:bg-violet-400/10"
-                >
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-400/10 text-violet-400">
-                    <Upload size={30} />
-                  </div>
-
-                  <h3 className="mt-5 text-lg font-bold">
-                    Upload Prescription
-                  </h3>
-
-                  <p className="mt-2 text-sm text-slate-400">
-                    Upload a handwritten or digital prescription.
-                  </p>
-
-                  <span className="mt-5 text-sm font-semibold text-violet-400">
-                    Upload Now →
-                  </span>
-                </button>
-
               </div>
+
             </section>
 
             {/* =================================================
@@ -930,6 +1196,7 @@ export default function PatientPortal() {
               id="records"
               className="mt-12 scroll-mt-24"
             >
+
               <SectionHeading
                 title="Health Records"
                 subtitle="Access your important medical reports and documents."
@@ -962,6 +1229,7 @@ export default function PatientPortal() {
                 />
 
               </div>
+
             </section>
 
             {/* =================================================
@@ -972,6 +1240,7 @@ export default function PatientPortal() {
               id="history"
               className="mt-12 scroll-mt-24"
             >
+
               <SectionHeading
                 title="Medical History"
                 subtitle="A timeline of your healthcare journey."
@@ -999,91 +1268,13 @@ export default function PatientPortal() {
                 />
 
               </div>
-            </section>
 
-            {/* =================================================
-                EMERGENCY SOS
-            ================================================== */}
-
-            <section
-              id="emergency"
-              className="mt-16 pb-10 scroll-mt-24"
-            >
-              <div className="relative overflow-hidden rounded-[2rem] border-2 border-red-500 bg-slate-900 p-6 shadow-[0_0_30px_rgba(239,68,68,0.35),0_0_80px_rgba(239,68,68,0.15)] md:p-10">
-
-                <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-red-500/20 blur-3xl" />
-
-                <div className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-orange-500/10 blur-3xl" />
-
-                <div className="relative z-10">
-
-                  <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500 text-white shadow-[0_0_30px_rgba(239,68,68,0.7)]">
-                          <ShieldAlert size={34} />
-                        </div>
-
-                        <div>
-                          <p className="text-sm font-bold tracking-[0.25em] text-red-400">
-                            EMERGENCY SERVICES
-                          </p>
-
-                          <h2 className="mt-1 text-3xl font-black text-white md:text-4xl">
-                            Need Help Immediately?
-                          </h2>
-                        </div>
-                      </div>
-
-                      <p className="mt-5 max-w-2xl leading-7 text-slate-300">
-                        Activate SOS to alert your emergency contacts,
-                        share your location and quickly access emergency
-                        healthcare assistance.
-                      </p>
-                    </div>
-
-                    {/* BIG SOS BUTTON */}
-
-                    <button
-                      onClick={handleSOS}
-                      className="group relative mx-auto lg:mx-0"
-                    >
-                      <div className="absolute inset-0 animate-ping rounded-full bg-red-500 opacity-30" />
-
-                      <div className="relative flex h-36 w-36 items-center justify-center rounded-full border-8 border-red-300 bg-red-600 text-3xl font-black text-white shadow-[0_0_35px_rgba(239,68,68,0.8)] transition duration-300 group-hover:scale-110">
-                        SOS
-                      </div>
-                    </button>
-                  </div>
-
-                  {/* EMERGENCY FEATURES */}
-
-                  <div className="mt-10 grid gap-4 sm:grid-cols-3">
-
-                    <EmergencyFeature
-                      icon={<Users size={20} />}
-                      text="Alert Emergency Contacts"
-                    />
-
-                    <EmergencyFeature
-                      icon={<MapPin size={20} />}
-                      text="Share Live Location"
-                    />
-
-                    <EmergencyFeature
-                      icon={<Ambulance size={20} />}
-                      text="Request Ambulance"
-                    />
-
-                  </div>
-
-                </div>
-              </div>
             </section>
 
           </div>
+
         </main>
+
       </div>
 
       {/* =====================================================
@@ -1091,6 +1282,7 @@ export default function PatientPortal() {
       ====================================================== */}
 
       {showCelebration && (
+
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-5 backdrop-blur-sm">
 
           <div className="w-full max-w-md rounded-3xl border-2 border-yellow-400 bg-slate-900 p-8 text-center shadow-[0_0_60px_rgba(250,204,21,0.25)]">
@@ -1100,11 +1292,15 @@ export default function PatientPortal() {
             </div>
 
             <h2 className="mt-6 text-3xl font-bold">
+
               Great Job,{" "}
+
               <span className="text-yellow-400">
                 {patientName}
               </span>
+
               ! 🎉
+
             </h2>
 
             <p className="mt-4 text-slate-400">
@@ -1113,6 +1309,7 @@ export default function PatientPortal() {
             </p>
 
             <div className="mt-6 rounded-2xl bg-slate-950 p-4">
+
               <p className="text-xs tracking-widest text-slate-500">
                 MEDICATION STREAK
               </p>
@@ -1120,18 +1317,24 @@ export default function PatientPortal() {
               <p className="mt-2 text-3xl font-bold text-yellow-400">
                 🔥 1 DAY
               </p>
+
             </div>
 
             <button
-              onClick={() => setShowCelebration(false)}
+              onClick={() =>
+                setShowCelebration(false)
+              }
               className="mt-6 w-full rounded-xl bg-yellow-400 py-3 font-bold text-slate-950 transition hover:scale-[1.02]"
             >
               Continue
             </button>
 
           </div>
+
         </div>
+
       )}
+
     </div>
   );
 }
@@ -1141,7 +1344,11 @@ export default function PatientPortal() {
    SIDEBAR BUTTON
 ========================================================= */
 
-function SidebarButton({ icon, text, onClick }) {
+function SidebarButton({
+  icon,
+  text,
+  onClick,
+}) {
   return (
     <button
       onClick={onClick}
@@ -1172,6 +1379,7 @@ function DashboardCard({
         boxShadow: `0 0 12px ${glow}, 0 0 30px ${glow}`,
       }}
     >
+
       <div
         className="absolute -right-8 -top-8 h-32 w-32 rounded-full blur-3xl"
         style={{
@@ -1196,6 +1404,7 @@ function DashboardCard({
         </div>
 
       </div>
+
     </div>
   );
 }
@@ -1205,9 +1414,13 @@ function DashboardCard({
    SECTION HEADING
 ========================================================= */
 
-function SectionHeading({ title, subtitle }) {
+function SectionHeading({
+  title,
+  subtitle,
+}) {
   return (
     <div>
+
       <h2 className="text-2xl font-bold">
         {title}
       </h2>
@@ -1215,6 +1428,7 @@ function SectionHeading({ title, subtitle }) {
       <p className="mt-2 text-slate-400">
         {subtitle}
       </p>
+
     </div>
   );
 }
@@ -1235,6 +1449,7 @@ function QuickAction({
       onClick={onClick}
       className="group rounded-2xl border border-slate-800 bg-slate-900 p-6 text-left transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400 hover:bg-cyan-400/5"
     >
+
       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-400 transition group-hover:bg-cyan-400 group-hover:text-slate-950">
         {icon}
       </div>
@@ -1251,6 +1466,7 @@ function QuickAction({
         Open
         <ChevronRight size={16} />
       </div>
+
     </button>
   );
 }
@@ -1267,11 +1483,13 @@ function AppointmentInfo({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl bg-slate-950 p-4">
+
       <div className="text-cyan-400">
         {icon}
       </div>
 
       <div>
+
         <p className="text-xs text-slate-500">
           {label}
         </p>
@@ -1279,7 +1497,9 @@ function AppointmentInfo({
         <p className="mt-1 text-sm font-semibold">
           {value}
         </p>
+
       </div>
+
     </div>
   );
 }
@@ -1309,7 +1529,9 @@ function MedicationSlot({
         }
       `}
     >
+
       <div>
+
         <p className="font-semibold">
           {label}
         </p>
@@ -1317,6 +1539,7 @@ function MedicationSlot({
         <p className="mt-1 text-sm text-slate-500">
           {time}
         </p>
+
       </div>
 
       <div
@@ -1333,6 +1556,7 @@ function MedicationSlot({
       >
         {checked && <Check size={18} />}
       </div>
+
     </button>
   );
 }
@@ -1351,6 +1575,7 @@ function PrescriptionCard({
     <div className="rounded-3xl border border-violet-400/20 bg-slate-900 p-6">
 
       <div className="flex items-center justify-between">
+
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-400/10 text-violet-400">
           <FileText size={24} />
         </div>
@@ -1358,6 +1583,7 @@ function PrescriptionCard({
         <span className="text-xs text-slate-500">
           Active
         </span>
+
       </div>
 
       <h3 className="mt-5 font-bold">
@@ -1369,24 +1595,29 @@ function PrescriptionCard({
       </p>
 
       <div className="mt-5 space-y-3">
-        {medicines.map((medicine, index) => (
-          <div
-            key={index}
-            className="flex items-center gap-3 text-sm text-slate-300"
-          >
-            <CheckCircle2
-              size={16}
-              className="text-violet-400"
-            />
 
-            {medicine}
-          </div>
-        ))}
+        {medicines.map(
+          (medicine, index) => (
+            <div
+              key={index}
+              className="flex items-center gap-3 text-sm text-slate-300"
+            >
+              <CheckCircle2
+                size={16}
+                className="text-violet-400"
+              />
+
+              {medicine}
+            </div>
+          )
+        )}
+
       </div>
 
       <button className="mt-6 text-sm font-semibold text-violet-400 hover:text-violet-300">
         View Full Prescription →
       </button>
+
     </div>
   );
 }
@@ -1441,6 +1672,7 @@ function TimelineItem({
       <div className="relative z-10 mt-1 h-7 w-7 rounded-full border-4 border-cyan-400 bg-slate-900" />
 
       <div>
+
         <p className="font-semibold">
           {title}
         </p>
@@ -1452,6 +1684,7 @@ function TimelineItem({
         <p className="mt-3 text-sm text-slate-400">
           {text}
         </p>
+
       </div>
 
     </div>
