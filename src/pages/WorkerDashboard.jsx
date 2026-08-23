@@ -1,259 +1,461 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
+  Activity,
+  Filter,
+  LogOut,
+  MapPin,
+  Mic,
+  Plus,
+  Search,
+  Shield,
+  UserCheck,
   Users,
+  Video,
+  Volume2,
   Clock,
   CheckCircle2,
   AlertTriangle,
-  Search,
-  Filter,
-  PhoneCall,
+  X,
 } from "lucide-react";
+import VideoConsult from "../modules/VideoConsult";
+import { apiRequest } from "../api/client";
 
-export default function WorkerDashboard() {
-  const [filter, setFilter] = useState("all");
+export default function WorkerDashboard({ user, onLogout, theme }) {
+  const navigate = useNavigate();
+  const isDark = theme !== "light";
+
+  const [activeCall, setActiveCall] = useState(null);
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [villageFilter, setVillageFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
 
-  const stats = [
+  const defaultQueue = [
     {
-      label: "Total Patients Today",
-      value: "24",
-      icon: Users,
-      color: "text-blue-300",
-      bgIcon: "bg-blue-500/20 border border-blue-400",
-      cardStyle: "bg-slate-800/90 border-2 border-blue-400 ring-4 ring-blue-500/20 shadow-lg shadow-blue-500/30",
-    },
-    {
-      label: "Appointments Pending",
-      value: "8",
-      icon: Clock,
-      color: "text-amber-300",
-      bgIcon: "bg-amber-500/20 border border-amber-400",
-      cardStyle: "bg-slate-800/90 border-2 border-amber-400 ring-4 ring-amber-500/20 shadow-lg shadow-amber-500/30",
-    },
-    {
-      label: "Completed Visits",
-      value: "14",
-      icon: CheckCircle2,
-      color: "text-teal-300",
-      bgIcon: "bg-teal-500/20 border border-teal-400",
-      cardStyle: "bg-slate-800/90 border-2 border-teal-400 ring-4 ring-teal-500/20 shadow-lg shadow-teal-500/30",
-    },
-    {
-      label: "Emergency Escalations",
-      value: "2",
-      icon: AlertTriangle,
-      color: "text-rose-300",
-      bgIcon: "bg-rose-500/20 border border-rose-400",
-      cardStyle: "bg-slate-800/90 border-2 border-rose-400 ring-4 ring-rose-500/20 shadow-lg shadow-rose-500/30",
-    },
-  ];
-
-  const patientList = [
-    {
-      id: "PT-94021",
-      name: "Alex Morgan",
+      token: "T-001",
+      name: "Rahul Das",
+      age: 48,
+      village: "Rampur",
+      chiefComplaint: "Hypertension Follow-up",
+      isVoice: true,
+      status: "In Waiting Room",
       time: "10:30 AM",
-      type: "Routine Checkup",
-      status: "Waiting",
-      urgency: "Normal",
-      doctor: "Dr. Ananya Sharma",
     },
     {
-      id: "PT-88102",
-      name: "Rohan Verma",
-      time: "11:15 AM",
-      type: "Cardiology Follow-up",
+      token: "T-002",
+      name: "Priya Sahu",
+      age: 34,
+      village: "Haripur",
+      chiefComplaint: "Asthma Inhaler Renewal",
+      isVoice: true,
+      status: "In Waiting Room",
+      time: "11:00 AM",
+    },
+    {
+      token: "T-003",
+      name: "Amit Behera",
+      age: 62,
+      village: "Gopinathpur",
+      chiefComplaint: "Persistent Dry Cough",
+      isVoice: true,
       status: "In Consultation",
-      urgency: "High",
-      doctor: "Dr. Rajesh Kumar",
+      time: "11:30 AM",
     },
     {
-      id: "PT-77319",
-      name: "Sneha Reddy",
-      time: "09:00 AM",
-      type: "Pediatric Care",
+      token: "T-004",
+      name: "Sneha Rout",
+      age: 29,
+      village: "Nandapur",
+      chiefComplaint: "Post-Op Dressing & Fever",
+      isVoice: true,
       status: "Completed",
-      urgency: "Normal",
-      doctor: "Dr. Priya Patel",
-    },
-    {
-      id: "PT-50122",
-      name: "Vikram Singh",
-      time: "12:00 PM",
-      type: "Emergency Chest Pain",
-      status: "Waiting",
-      urgency: "Emergency",
-      doctor: "Dr. Rajesh Kumar",
+      time: "09:00 AM",
     },
   ];
 
-  const filteredPatients = patientList.filter((p) => {
+  const [patients, setPatients] = useState(defaultQueue);
+  const [newPatient, setNewPatient] = useState({
+    name: "",
+    age: "",
+    village: "Rampur",
+    chiefComplaint: "",
+  });
+
+  // Sync with Supabase Cloud
+  const syncLiveQueue = async () => {
+    try {
+      const queueData = await apiRequest("/api/appointments");
+      if (queueData && Array.isArray(queueData) && queueData.length > 0) {
+        const uniqueMap = new Map();
+        defaultQueue.forEach((p) => uniqueMap.set(p.token, p));
+
+        queueData.forEach((item, idx) => {
+          const tokenKey = item.token_number || item.token || `T-00${idx + 1}`;
+          uniqueMap.set(tokenKey, {
+            token: tokenKey,
+            name: item.patient_name || item.name || "Rahul Das",
+            age: item.age || 48,
+            village: item.village || "Rampur",
+            chiefComplaint:
+              item.reason || item.chiefComplaint || "Clinical Consultation",
+            isVoice: true,
+            status: item.status || "In Waiting Room",
+            time: "10:30 AM",
+          });
+        });
+
+        const localSaved = JSON.parse(
+          localStorage.getItem("community_shared_queue") || "[]",
+        );
+        localSaved.forEach((local) => {
+          if (local.token) uniqueMap.set(local.token, local);
+        });
+
+        setPatients(Array.from(uniqueMap.values()));
+      }
+    } catch (err) {}
+  };
+
+  useEffect(() => {
+    syncLiveQueue();
+    const handleStorage = () => syncLiveQueue();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("shared-queue-updated", handleStorage);
+    const interval = setInterval(syncLiveQueue, 3000);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("shared-queue-updated", handleStorage);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const playPatientVoiceNote = (complaintText) => {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(complaintText);
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleClearQueue = () => {
+    if (window.confirm("Reset queue to baseline patients for the demo?")) {
+      setPatients(defaultQueue);
+      localStorage.setItem(
+        "community_shared_queue",
+        JSON.stringify(defaultQueue),
+      );
+      window.dispatchEvent(new Event("shared-queue-updated"));
+    }
+  };
+
+  const handleRegisterPatient = async (e) => {
+    e.preventDefault();
+    if (!newPatient.name) return;
+
+    const nextNum = patients.length + 1;
+    const tokenTag = `T-00${nextNum}`;
+
+    const entry = {
+      token: tokenTag,
+      token_number: tokenTag,
+      name: newPatient.name,
+      patient_name: newPatient.name,
+      age: newPatient.age || "45",
+      village: newPatient.village || "Rampur",
+      reason: newPatient.chiefComplaint || "Walk-in Checkup",
+      chiefComplaint: newPatient.chiefComplaint || "Walk-in Checkup",
+      isVoice: true,
+      status: "In Waiting Room",
+      time: "Just Now",
+    };
+
+    const updated = [...patients.filter((p) => p.token !== tokenTag), entry];
+    setPatients(updated);
+    localStorage.setItem("community_shared_queue", JSON.stringify(updated));
+    window.dispatchEvent(new Event("shared-queue-updated"));
+
+    setIsRegisterOpen(false);
+    setNewPatient({ name: "", age: "", village: "Rampur", chiefComplaint: "" });
+
+    try {
+      await apiRequest("/api/appointments", {
+        method: "POST",
+        body: JSON.stringify(entry),
+      });
+    } catch (err) {}
+  };
+
+  const handleLogout = () => {
+    if (onLogout) onLogout();
+    navigate("/auth");
+  };
+
+  const filteredPatients = patients.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.id.toLowerCase().includes(searchTerm.toLowerCase());
-    if (filter === "all") return matchesSearch;
-    return matchesSearch && p.status.toLowerCase() === filter.toLowerCase();
+      p.token.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.village.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesVillage =
+      villageFilter === "ALL" ||
+      p.village.toLowerCase() === villageFilter.toLowerCase();
+    const matchesStatus =
+      statusFilter === "ALL" ||
+      p.status.toLowerCase().includes(statusFilter.toLowerCase());
+    return matchesSearch && matchesVillage && matchesStatus;
   });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 py-8 px-4 sm:px-6 lg:px-8 space-y-6 max-w-7xl mx-auto">
-      {/* Top Banner Header with Highlighted Cyan Border */}
-      <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 border-2 border-cyan-500/80 rounded-3xl p-6 sm:p-8 text-white shadow-xl shadow-cyan-500/10 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10">
-          <div className="flex items-center gap-2">
-            <span className="bg-teal-500/20 text-teal-300 text-xs px-3 py-1 rounded-full font-bold border border-teal-400 shadow-sm shadow-teal-500/20">
-              Healthcare Staff Operations
-            </span>
-            <span className="text-xs text-slate-400 font-medium">Shift: Morning (8 AM - 4 PM)</span>
+    <div
+      className={`min-h-screen transition-colors duration-200 px-4 sm:px-8 py-6 max-w-7xl mx-auto space-y-8 font-sans ${
+        isDark ? "bg-slate-950 text-white" : "bg-zinc-50 text-zinc-900"
+      }`}
+    >
+      {/* Top Banner Card */}
+      <div
+        className={`rounded-3xl border p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-xl ${
+          isDark
+            ? "border-slate-800 bg-slate-900/90"
+            : "border-zinc-200 bg-white"
+        }`}
+      >
+        <div className="flex items-center gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-400 text-slate-950 font-bold shadow-[0_0_20px_rgba(34,211,238,0.3)]">
+            <Shield size={28} />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-2 text-white">
-            Worker Dashboard
-          </h1>
-          <p className="text-slate-300 text-sm mt-1 max-w-xl">
-            Monitor live patient queues, triage urgent cases, and manage active consultation rooms.
-          </p>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono font-bold bg-cyan-400/10 text-cyan-400 px-2 py-0.5 rounded-md uppercase border border-cyan-400/20">
+                Healthcare Operations
+              </span>
+              <span className="text-xs text-slate-400 font-mono">
+                Shift: 08:00 AM - 04:00 PM
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold mt-1">
+              Clinical Triage Desk{" "}
+              <span className="text-sm font-normal text-slate-400">
+                ({user?.name || "Dr. Rakesh Mohanty"})
+              </span>
+            </h1>
+            <p className="text-xs text-slate-400 font-mono mt-0.5">
+              Sector:{" "}
+              <strong>{user?.village || "Rampur Primary Subcenter"}</strong> •
+              Live Cloud Sync
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 relative z-10">
-          <button className="flex items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2.5 rounded-xl border-2 border-rose-400 shadow-md shadow-rose-600/40 transition text-sm">
-            <PhoneCall className="w-4 h-4" /> Trigger Emergency
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setIsRegisterOpen(true)}
+            className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-mono text-xs uppercase font-bold px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition shadow-[0_0_15px_rgba(34,211,238,0.2)]"
+          >
+            <Plus size={16} /> Register Walk-in
+          </button>
+          <button
+            onClick={handleClearQueue}
+            className={`font-mono text-xs uppercase px-3.5 py-2.5 rounded-xl border transition ${
+              isDark
+                ? "border-slate-800 hover:bg-slate-800 text-slate-300"
+                : "border-zinc-200 hover:bg-zinc-100 text-zinc-700"
+            }`}
+          >
+            Reset
+          </button>
+          <button
+            onClick={handleLogout}
+            className={`font-mono text-xs uppercase px-3.5 py-2.5 rounded-xl border transition ${
+              isDark
+                ? "border-slate-800 hover:bg-slate-800 text-slate-300"
+                : "border-zinc-200 hover:bg-zinc-100 text-zinc-700"
+            }`}
+          >
+            Switch Doctor
           </button>
         </div>
       </div>
 
-      {/* Metrics Stat Panels (Highlighted Glowing Borders) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
-        {stats.map((s, i) => {
-          const Icon = s.icon;
-          return (
-            <div
-              key={i}
-              className={`p-5 rounded-2xl transition duration-300 hover:scale-[1.02] ${s.cardStyle}`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-extrabold text-slate-200 uppercase tracking-wider">
-                  {s.label}
-                </span>
-                <div className={`p-2.5 rounded-xl ${s.bgIcon} ${s.color}`}>
-                  <Icon className="w-5 h-5" />
-                </div>
-              </div>
-              <p className="text-3xl font-black text-white mt-4">{s.value}</p>
-            </div>
-          );
-        })}
+      {/* Metric Glow Cards */}
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          label="TOTAL PATIENTS TODAY"
+          value={patients.length + 18}
+          icon={<Users size={22} />}
+          color="#38bdf8"
+          isDark={isDark}
+        />
+        <MetricCard
+          label="APPOINTMENTS PENDING"
+          value={patients.filter((p) => p.status === "In Waiting Room").length}
+          icon={<Clock size={22} />}
+          color="#facc15"
+          isDark={isDark}
+        />
+        <MetricCard
+          label="COMPLETED VISITS"
+          value={19}
+          icon={<CheckCircle2 size={22} />}
+          color="#2dd4bf"
+          isDark={isDark}
+        />
+        <MetricCard
+          label="EMERGENCY ESCALATIONS"
+          value={2}
+          icon={<AlertTriangle size={22} />}
+          color="#f87171"
+          isDark={isDark}
+        />
       </div>
 
-      {/* Main Queue & Patient Table Panel with Highlighted Blue/Teal Border */}
-      <div className="bg-slate-900 rounded-2xl border-2 border-teal-500/60 shadow-xl shadow-teal-500/10 overflow-hidden">
-        {/* Controls Bar: Search & Status Filters */}
-        <div className="p-4 sm:p-6 border-b-2 border-teal-500/40 flex flex-col sm:flex-row gap-4 items-center justify-between bg-slate-900/80">
-          {/* Highlighted Search Bar */}
-          <div className="relative w-full sm:w-80">
-            <Search className="w-4 h-4 text-teal-400 absolute left-3 top-3" />
+      {/* Main Triage Queue Table */}
+      <div
+        className={`rounded-3xl border overflow-hidden shadow-xl ${
+          isDark ? "border-slate-800 bg-slate-900" : "border-zinc-200 bg-white"
+        }`}
+      >
+        {/* Table Filter Controls */}
+        <div
+          className={`p-5 border-b flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${
+            isDark
+              ? "border-slate-800 bg-slate-950/50"
+              : "border-zinc-200 bg-zinc-50"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Search size={16} className="text-slate-400" />
             <input
               type="text"
-              placeholder="Search by name or Patient ID..."
+              placeholder="Search token, patient name, village..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border-2 border-teal-500/60 rounded-xl text-xs focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/30 bg-slate-950 text-slate-100 placeholder-slate-400 transition"
+              className={`text-xs px-3 py-2 rounded-xl border focus:outline-none focus:border-cyan-400 w-64 ${
+                isDark
+                  ? "bg-slate-900 border-slate-700 text-white"
+                  : "bg-white border-zinc-300 text-zinc-900"
+              }`}
             />
           </div>
 
-          {/* Highlighted Filter Buttons */}
-          <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-            <Filter className="w-4 h-4 text-teal-400 shrink-0" />
-            {["all", "waiting", "in consultation", "completed"].map((tab) => (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Village Selector */}
+            <select
+              value={villageFilter}
+              onChange={(e) => setVillageFilter(e.target.value)}
+              className={`text-xs font-mono px-3 py-2 rounded-xl border focus:outline-none ${
+                isDark
+                  ? "bg-slate-900 border-slate-700 text-white"
+                  : "bg-white border-zinc-300 text-zinc-900"
+              }`}
+            >
+              <option value="ALL">📍 All Villages ({patients.length})</option>
+              <option value="Rampur">Rampur</option>
+              <option value="Haripur">Haripur</option>
+              <option value="Gopinathpur">Gopinathpur</option>
+              <option value="Nandapur">Nandapur</option>
+              <option value="Balipatna">Balipatna</option>
+            </select>
+
+            {/* Status Tabs */}
+            {["ALL", "Waiting", "Consultation", "Completed"].map((st) => (
               <button
-                key={tab}
-                onClick={() => setFilter(tab)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold capitalize whitespace-nowrap transition border-2 ${
-                  filter === tab
-                    ? "bg-teal-500 text-slate-950 border-teal-300 shadow-md shadow-teal-500/30"
-                    : "bg-slate-800 text-slate-300 hover:bg-slate-700 border-slate-600 hover:border-slate-500"
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                className={`text-xs font-mono px-3 py-1.5 rounded-xl border transition ${
+                  statusFilter === st
+                    ? "bg-cyan-400 text-slate-950 border-cyan-400 font-bold"
+                    : isDark
+                      ? "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+                      : "bg-zinc-100 border-zinc-200 text-zinc-600"
                 }`}
               >
-                {tab}
+                {st}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Patient Table */}
+        {/* The Live Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-950/80 text-teal-300 text-[11px] font-black uppercase tracking-wider border-b-2 border-teal-500/30">
-                <th className="py-4 px-6">Patient</th>
-                <th className="py-4 px-6">Time & Type</th>
-                <th className="py-4 px-6">Assigned Doctor</th>
-                <th className="py-4 px-6">Priority</th>
-                <th className="py-4 px-6">Status</th>
-                <th className="py-4 px-6 text-right">Actions</th>
+          <table className="w-full text-left text-xs">
+            <thead
+              className={`font-mono uppercase border-b text-[11px] ${
+                isDark
+                  ? "bg-slate-950/70 border-slate-800 text-slate-400"
+                  : "bg-zinc-100 border-zinc-200 text-zinc-600"
+              }`}
+            >
+              <tr>
+                <th className="py-3 px-5">Token</th>
+                <th className="py-3 px-5">Patient Details</th>
+                <th className="py-3 px-5">Village</th>
+                <th className="py-3 px-5">Chief Complaint / Voice Note</th>
+                <th className="py-3 px-5">Status</th>
+                <th className="py-3 px-5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y border-teal-500/20 divide-slate-800/80 text-xs">
+            <tbody
+              className={`divide-y ${isDark ? "divide-slate-800" : "divide-zinc-200"}`}
+            >
               {filteredPatients.map((p) => (
-                <tr key={p.id} className="hover:bg-slate-800/60 transition">
-                  {/* Patient Name & ID */}
-                  <td className="py-4 px-6">
-                    <div className="font-extrabold text-slate-100">{p.name}</div>
-                    <div className="text-[11px] text-teal-400 font-mono mt-0.5">{p.id}</div>
+                <tr
+                  key={p.token}
+                  className={`transition ${isDark ? "hover:bg-slate-800/50" : "hover:bg-zinc-50"}`}
+                >
+                  <td className="py-4 px-5 font-mono font-bold text-cyan-400 text-sm">
+                    {p.token}
                   </td>
-
-                  {/* Time & Consultation Type */}
-                  <td className="py-4 px-6">
-                    <div className="font-bold text-slate-200 flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-cyan-400" /> {p.time}
-                    </div>
-                    <div className="text-slate-400 text-[11px] mt-0.5">{p.type}</div>
-                  </td>
-
-                  {/* Assigned Doctor */}
-                  <td className="py-4 px-6 font-semibold text-slate-300">
-                    {p.doctor}
-                  </td>
-
-                  {/* Highlighted Urgency Badge */}
-                  <td className="py-4 px-6">
-                    <span
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border-2 ${
-                        p.urgency === "Emergency"
-                          ? "bg-rose-500/20 text-rose-300 border-rose-400 shadow-sm shadow-rose-500/30 animate-pulse"
-                          : p.urgency === "High"
-                          ? "bg-amber-500/20 text-amber-300 border-amber-400 shadow-sm shadow-amber-500/30"
-                          : "bg-slate-800 text-slate-300 border-slate-600"
-                      }`}
-                    >
-                      {p.urgency}
+                  <td className="py-4 px-5">
+                    <p className="font-bold text-sm">{p.name}</p>
+                    <span className="text-slate-400 font-mono text-[11px]">
+                      {p.age} yrs
                     </span>
                   </td>
+                  <td className="py-4 px-5 font-mono">📍 {p.village}</td>
 
-                  {/* Highlighted Status Badge */}
-                  <td className="py-4 px-6">
+                  {/* Complaint with Working Audio Button */}
+                  <td className="py-4 px-5">
+                    <div className="flex items-center gap-2">
+                      <strong className="font-medium text-xs">
+                        {p.chiefComplaint}
+                      </strong>
+                      {p.isVoice && (
+                        <button
+                          onClick={() => playPatientVoiceNote(p.chiefComplaint)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-md font-mono text-[10px] transition shrink-0"
+                          title="Listen to Patient Voice Recording"
+                        >
+                          <Volume2 size={12} /> Listen
+                        </button>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* Status Badge */}
+                  <td className="py-4 px-5">
                     <span
-                      className={`px-2.5 py-1 rounded-full text-xs font-bold border-2 ${
-                        p.status === "Waiting"
-                          ? "bg-amber-500/10 text-amber-300 border-amber-400"
-                          : p.status === "In Consultation"
-                          ? "bg-blue-500/10 text-blue-300 border-blue-400"
-                          : "bg-teal-500/10 text-teal-300 border-teal-400"
+                      className={`text-[10px] font-mono uppercase px-2.5 py-1 rounded-lg border font-bold ${
+                        p.status === "In Waiting Room"
+                          ? "bg-amber-400/10 text-amber-400 border-amber-400/30"
+                          : p.status === "In Consultation" ||
+                              p.status === "Consulting"
+                            ? "bg-blue-400/10 text-blue-400 border-blue-400/30"
+                            : "bg-emerald-400/10 text-emerald-400 border-emerald-400/30"
                       }`}
                     >
                       {p.status}
                     </span>
                   </td>
 
-                  {/* Highlighted Action Buttons */}
-                  <td className="py-4 px-6 text-right space-x-2">
-                    <button className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold rounded-xl text-xs border-2 border-cyan-500/60 transition shadow-sm">
-                      Update Vitals
-                    </button>
-                    <button className="px-3 py-1.5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-black rounded-xl text-xs border-2 border-teal-300 transition shadow-md shadow-teal-500/30">
-                      Call In
+                  {/* WORKING CALL IN / TELECONSULT BUTTON */}
+                  <td className="py-4 px-5 text-right space-x-2">
+                    <button
+                      onClick={() => setActiveCall(p.token)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-mono text-xs font-bold rounded-xl transition shadow-[0_0_10px_rgba(34,211,238,0.2)]"
+                      title="Launch WebRTC Video Room"
+                    >
+                      <Video size={14} /> Call In
                     </button>
                   </td>
                 </tr>
@@ -262,6 +464,162 @@ export default function WorkerDashboard() {
           </table>
         </div>
       </div>
+
+      {/* REGISTER WALK-IN MODAL */}
+      {isRegisterOpen && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div
+            className={`w-full max-w-md p-6 rounded-3xl border shadow-2xl ${
+              isDark
+                ? "bg-slate-900 border-slate-700 text-white"
+                : "bg-white border-zinc-300 text-zinc-900"
+            }`}
+          >
+            <div className="flex justify-between items-center pb-3 border-b border-slate-700">
+              <h3 className="font-bold font-mono uppercase text-sm">
+                Register Walk-In Patient
+              </h3>
+              <button onClick={() => setIsRegisterOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleRegisterPatient} className="space-y-3 mt-4">
+              <div>
+                <label className="block text-xs font-mono uppercase text-slate-400 mb-1">
+                  Patient Legal Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Minati Behera"
+                  value={newPatient.name}
+                  onChange={(e) =>
+                    setNewPatient({ ...newPatient, name: e.target.value })
+                  }
+                  className={`w-full p-2.5 rounded-xl border text-xs focus:outline-none ${
+                    isDark
+                      ? "bg-slate-950 border-slate-700 text-white"
+                      : "bg-zinc-50 border-zinc-300"
+                  }`}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-mono uppercase text-slate-400 mb-1">
+                    Age
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="42"
+                    value={newPatient.age}
+                    onChange={(e) =>
+                      setNewPatient({ ...newPatient, age: e.target.value })
+                    }
+                    className={`w-full p-2.5 rounded-xl border text-xs ${
+                      isDark
+                        ? "bg-slate-950 border-slate-700 text-white"
+                        : "bg-zinc-50 border-zinc-300"
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-mono uppercase text-slate-400 mb-1">
+                    Village
+                  </label>
+                  <select
+                    value={newPatient.village}
+                    onChange={(e) =>
+                      setNewPatient({ ...newPatient, village: e.target.value })
+                    }
+                    className={`w-full p-2.5 rounded-xl border text-xs font-mono ${
+                      isDark
+                        ? "bg-slate-950 border-slate-700 text-white"
+                        : "bg-zinc-50 border-zinc-300"
+                    }`}
+                  >
+                    <option value="Rampur">Rampur</option>
+                    <option value="Haripur">Haripur</option>
+                    <option value="Gopinathpur">Gopinathpur</option>
+                    <option value="Nandapur">Nandapur</option>
+                    <option value="Balipatna">Balipatna</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-mono uppercase text-slate-400 mb-1">
+                  Chief Complaint
+                </label>
+                <input
+                  type="text"
+                  placeholder="Fever & joint pain"
+                  value={newPatient.chiefComplaint}
+                  onChange={(e) =>
+                    setNewPatient({
+                      ...newPatient,
+                      chiefComplaint: e.target.value,
+                    })
+                  }
+                  className={`w-full p-2.5 rounded-xl border text-xs ${
+                    isDark
+                      ? "bg-slate-950 border-slate-700 text-white"
+                      : "bg-zinc-50 border-zinc-300"
+                  }`}
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-mono text-xs uppercase font-bold py-3 rounded-xl mt-2 transition"
+              >
+                Add to Clinic Queue
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* REAL WORKING VIDEO CONSULTATION MODAL */}
+      {activeCall && (
+        <VideoConsult
+          roomName={activeCall}
+          userName={user?.name || "Dr. Rakesh Mohanty"}
+          patientDetails={{
+            name:
+              patients.find((p) => p.token === activeCall)?.name || "Rahul Das",
+            age: 48,
+            village:
+              patients.find((p) => p.token === activeCall)?.village || "Rampur",
+            complaint:
+              patients.find((p) => p.token === activeCall)?.chiefComplaint ||
+              "General Consultation",
+            token: activeCall,
+          }}
+          onClose={() => setActiveCall(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function MetricCard({ label, value, icon, color, isDark }) {
+  return (
+    <div
+      className={`rounded-3xl border p-6 transition hover:-translate-y-1 shadow-lg ${
+        isDark ? "border-slate-800 bg-slate-900" : "border-zinc-200 bg-white"
+      }`}
+      style={{ borderLeft: `4px solid ${color}` }}
+    >
+      <div className="flex justify-between items-start">
+        <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">
+          {label}
+        </p>
+        <div
+          className="p-2 rounded-xl"
+          style={{ color, background: `${color}15` }}
+        >
+          {icon}
+        </div>
+      </div>
+      <h2 className="text-3xl font-bold font-mono mt-2">{value}</h2>
     </div>
   );
 }
