@@ -8,12 +8,6 @@ import {
   Sparkles,
 } from "lucide-react";
 
-/**
- * HACQUIRE TRADABLE ASSET: Vernacular Voice & Audio Triage Engine
- * - Speech-to-Text: Logs spoken patient symptoms into appointment requests.
- * - Text-to-Speech: Audibly reads prescription dosage schedules.
- * - Voice Routing: Executes commands ("Doctor Call", "SOS") hands-free.
- */
 export default function VoiceAssistant({
   onResult,
   onCommand,
@@ -21,11 +15,10 @@ export default function VoiceAssistant({
 }) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
-  const [langMode, setLangMode] = useState("en-IN"); // 'hi-IN' or 'en-IN'
+  const [langMode, setLangMode] = useState("en-IN");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [detectedCommand, setDetectedCommand] = useState(null);
 
-  // 1. Speech-to-Text & Command Parser
   const toggleListening = () => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -56,7 +49,6 @@ export default function VoiceAssistant({
       setTranscript(text);
       if (onResult) onResult(text);
 
-      // Voice Command Routing
       const lower = text.toLowerCase();
       if (
         lower.includes("doctor") ||
@@ -80,7 +72,6 @@ export default function VoiceAssistant({
     recognition.start();
   };
 
-  // 2. Text-to-Speech Audio Readout
   const speakPrescription = () => {
     if (!window.speechSynthesis) return;
 
@@ -92,7 +83,7 @@ export default function VoiceAssistant({
 
     const utterance = new SpeechSynthesisUtterance(readAloudText);
     utterance.lang = langMode;
-    utterance.rate = 0.88; // Slower cadence for rural clarity
+    utterance.rate = 0.88;
 
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
@@ -101,24 +92,24 @@ export default function VoiceAssistant({
   };
 
   return (
-    <div className="bg-white border-2 border-zinc-900 p-6 space-y-4 font-sans shadow-sm">
+    <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6 md:p-8 space-y-6 font-sans shadow-xl">
       {/* Header */}
-      <div className="flex justify-between items-center border-b border-zinc-200 pb-3">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-800 pb-4">
         <div>
-          <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-800 font-bold block">
-            Rural Accessibility Engine
+          <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold block">
+            VERNACULAR ACCESSIBILITY ENGINE
           </span>
-          <h3 className="text-base font-bold text-zinc-900">
+          <h3 className="text-lg font-bold text-white mt-0.5">
             {langMode === "hi-IN"
               ? "आवाज द्वारा लक्षण रिकॉर्ड एवं दवा श्रवण"
-              : "Vernacular Voice Triage & Audio Companion"}
+              : "Vernacular Voice Triage & Spoken Audio"}
           </h3>
         </div>
 
         <button
           type="button"
           onClick={() => setLangMode(langMode === "hi-IN" ? "en-IN" : "hi-IN")}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 text-xs font-mono uppercase transition"
+          className="flex items-center gap-2 px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-700 text-xs font-mono text-cyan-400 rounded-xl transition"
         >
           <Globe className="w-3.5 h-3.5" />
           <span>
@@ -128,19 +119,23 @@ export default function VoiceAssistant({
       </div>
 
       {/* Main Buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         {/* Speak Symptoms Button */}
         <button
           type="button"
           onClick={toggleListening}
-          className={`p-6 border-2 flex flex-col items-center justify-center gap-3 transition text-center ${
+          className={`p-6 rounded-2xl border-2 flex flex-col items-center justify-center gap-3 transition text-center ${
             isListening
-              ? "bg-red-600 border-red-700 text-white animate-pulse"
-              : "bg-zinc-50 hover:bg-emerald-50 border-zinc-900 hover:border-emerald-700 text-zinc-900"
+              ? "bg-red-500/20 border-red-500 text-white animate-pulse"
+              : "bg-slate-950 hover:bg-cyan-400/5 border-slate-800 hover:border-cyan-400 text-white group"
           }`}
         >
           <div
-            className={`p-4 rounded-full ${isListening ? "bg-white text-red-600" : "bg-zinc-900 text-white"}`}
+            className={`p-4 rounded-2xl transition-transform group-hover:scale-110 ${
+              isListening
+                ? "bg-red-500 text-white"
+                : "bg-cyan-400/10 text-cyan-400"
+            }`}
           >
             {isListening ? (
               <MicOff className="w-8 h-8 animate-spin" />
@@ -149,13 +144,13 @@ export default function VoiceAssistant({
             )}
           </div>
           <div>
-            <strong className="block text-sm font-mono uppercase tracking-wider">
+            <strong className="block text-sm font-mono uppercase tracking-wider text-white">
               {isListening ? "Listening Now... Speak" : "Tap to Speak Symptoms"}
             </strong>
-            <span className="text-xs text-zinc-500 block mt-0.5">
+            <span className="text-xs text-slate-400 block mt-1">
               {langMode === "hi-IN"
                 ? 'बोलें (उदा. "सर दर्द" या "डॉक्टर कॉल")'
-                : 'Speak symptoms or say "Doctor Call" / "SOS"'}
+                : 'Describe symptoms or say "Doctor Call" / "SOS"'}
             </span>
           </div>
         </button>
@@ -164,50 +159,54 @@ export default function VoiceAssistant({
         <button
           type="button"
           onClick={speakPrescription}
-          className={`p-6 border-2 flex flex-col items-center justify-center gap-3 transition text-center ${
+          className={`p-6 rounded-2xl border-2 flex flex-col items-center justify-center gap-3 transition text-center ${
             isSpeaking
-              ? "bg-emerald-700 border-emerald-800 text-white animate-pulse"
-              : "bg-zinc-50 hover:bg-zinc-100 border-zinc-900 text-zinc-900"
+              ? "bg-teal-500/20 border-teal-400 text-white animate-pulse"
+              : "bg-slate-950 hover:bg-teal-400/5 border-slate-800 hover:border-teal-400 text-white group"
           }`}
         >
           <div
-            className={`p-4 rounded-full ${isSpeaking ? "bg-white text-emerald-700" : "bg-emerald-700 text-white"}`}
+            className={`p-4 rounded-2xl transition-transform group-hover:scale-110 ${
+              isSpeaking
+                ? "bg-teal-400 text-slate-950"
+                : "bg-teal-400/10 text-teal-400"
+            }`}
           >
             <Volume2 className="w-8 h-8" />
           </div>
           <div>
-            <strong className="block text-sm font-mono uppercase tracking-wider">
-              {isSpeaking ? "Reading Aloud..." : "Read Prescription Aloud"}
+            <strong className="block text-sm font-mono uppercase tracking-wider text-white">
+              {isSpeaking ? "Reading Aloud..." : "Read Prescriptions Aloud"}
             </strong>
-            <span className="text-xs text-zinc-500 block mt-0.5">
+            <span className="text-xs text-slate-400 block mt-1">
               {langMode === "hi-IN"
                 ? "दवाइयों का समय आवाज में सुनें"
-                : "Listen to daily medication schedule"}
+                : "Listen to daily dosage schedule"}
             </span>
           </div>
         </button>
       </div>
 
-      {/* Transcript & Command Banner */}
+      {/* Transcript Banner */}
       {transcript && (
-        <div className="p-4 bg-emerald-50 border border-emerald-300 space-y-2">
+        <div className="p-4 bg-slate-950 border border-cyan-400/40 rounded-2xl space-y-2">
           <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
+            <CheckCircle2 className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
             <div>
-              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-800 font-bold block">
-                Recorded Patient Triage Symptom
+              <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-400 font-bold block">
+                Recorded Patient Symptom
               </span>
-              <p className="text-sm font-medium text-zinc-900 mt-0.5">
+              <p className="text-sm font-medium text-white mt-0.5">
                 "{transcript}"
               </p>
             </div>
           </div>
 
           {detectedCommand && (
-            <div className="flex items-center gap-2 pt-2 border-t border-emerald-200 text-xs font-mono text-emerald-900">
-              <Sparkles className="w-4 h-4 text-emerald-600 animate-spin" />
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-800 text-xs font-mono text-cyan-300">
+              <Sparkles className="w-4 h-4 text-cyan-400 animate-spin" />
               <span>
-                Auto-Action Triggered:{" "}
+                Voice Action Triggered:{" "}
                 <strong>{detectedCommand.toUpperCase()}</strong>
               </span>
             </div>
