@@ -292,6 +292,12 @@ export default function PatientPortal({ user, onLogout, theme }) {
               onClick={() => scrollToSection("appointment")}
             />
             <SidebarButton
+              icon={<Home size={18} />}
+              text="Landing Page"
+              isDark={isDark}
+              onClick={() => navigate("/")}
+            />
+            <SidebarButton
               icon={<Pill size={18} />}
               text="Prescriptions"
               isDark={isDark}

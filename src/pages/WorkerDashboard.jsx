@@ -255,6 +255,16 @@ export default function WorkerDashboard({ user, onLogout, theme }) {
             <Plus size={16} /> Register Walk-in
           </button>
           <button
+            onClick={() => navigate("/")}
+            className={`font-mono text-xs uppercase px-3.5 py-2.5 rounded-xl border transition ${
+              isDark
+                ? "border-slate-800 hover:bg-slate-800 text-slate-300"
+                : "border-zinc-200 hover:bg-zinc-100 text-zinc-700"
+            }`}
+          >
+            Landing Page
+          </button>
+          <button
             onClick={handleClearQueue}
             className={`font-mono text-xs uppercase px-3.5 py-2.5 rounded-xl border transition ${
               isDark
