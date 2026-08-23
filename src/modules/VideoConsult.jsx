@@ -123,7 +123,6 @@ export default function VideoConsult({
               setConnectionStatus("Direct P2P Video Connected");
             }
 
-            // Detect when remote user hangs up
             remoteStream.getTracks().forEach((track) => {
               track.onended = () => handleRemoteDisconnect();
             });
@@ -284,11 +283,11 @@ export default function VideoConsult({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-6 font-sans">
-      <div className="w-full max-w-6xl h-[90vh] bg-zinc-950 border border-zinc-800 flex flex-col shadow-2xl overflow-hidden">
-        {/* Top Header */}
-        <div className="px-6 py-3 bg-zinc-900 border-b border-zinc-800 flex justify-between items-center text-white">
+      <div className="w-full max-w-6xl h-[92vh] max-h-[850px] bg-zinc-950 border border-zinc-800 flex flex-col shadow-2xl overflow-hidden rounded-2xl">
+        {/* Top Header (Fixed Height) */}
+        <div className="px-5 py-3 bg-zinc-900 border-b border-zinc-800 flex justify-between items-center text-white shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-1.5 bg-emerald-700 text-white font-mono text-xs flex items-center gap-1.5">
+            <div className="p-1.5 bg-emerald-700 text-white font-mono text-xs flex items-center gap-1.5 rounded-lg">
               <Activity className="w-4 h-4 text-emerald-300" />
               <span>MEDISPHERE | P2P ENCRYPTED TELEHEALTH SESSION</span>
             </div>
@@ -299,35 +298,36 @@ export default function VideoConsult({
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 bg-zinc-800 px-3 py-1 text-xs font-mono text-emerald-400 border border-zinc-700">
+            <div className="flex items-center gap-2 bg-zinc-800 px-3 py-1 text-xs font-mono text-emerald-400 border border-zinc-700 rounded-lg">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
               <span>DURATION: {formatTime(callDuration)}</span>
             </div>
             <button
               onClick={handleEndCall}
-              className="p-1.5 hover:bg-zinc-800 text-zinc-400 hover:text-white transition"
+              className="p-1.5 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-lg transition"
             >
               ✕
             </button>
           </div>
         </div>
 
-        {/* Video Stage */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-px bg-zinc-800 overflow-hidden">
-          {/* Main Video Screen */}
-          <div className="lg:col-span-2 bg-zinc-950 p-4 flex flex-col justify-between relative">
-            <div className="flex-1 relative bg-zinc-900 border border-zinc-800 flex items-center justify-center overflow-hidden">
-              {/* REMOTE VIDEO (Other Person's Live Stream) */}
+        {/* Video Stage & Chat Grid */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-px bg-zinc-800 overflow-hidden min-h-0">
+          {/* Main Video Screen (Left 2 Columns) */}
+          <div className="lg:col-span-2 bg-zinc-950 p-3 sm:p-4 flex flex-col justify-between relative min-h-0 h-full overflow-hidden">
+            {/* Video Viewport Container (Locked Aspect & Overflow) */}
+            <div className="flex-1 relative bg-zinc-900 border border-zinc-800 flex items-center justify-center overflow-hidden rounded-xl min-h-0">
+              {/* REMOTE VIDEO (Pinned to Absolute Inset-0 so it NEVER expands the parent!) */}
               <video
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                className={`w-full h-full object-cover ${peerConnected ? "block" : "hidden"}`}
+                className={`absolute inset-0 w-full h-full object-cover z-10 ${peerConnected ? "block" : "hidden"}`}
               />
 
-              {/* Call Ended Alert Overlay */}
+              {/* Call Ended Overlay */}
               {callEndedMsg && (
-                <div className="absolute inset-0 bg-black/85 z-40 flex flex-col items-center justify-center gap-2 text-center">
+                <div className="absolute inset-0 bg-black/85 z-40 flex flex-col items-center justify-center gap-2 text-center p-4">
                   <div className="p-3 bg-red-600/30 text-red-500 rounded-full">
                     <PhoneOff className="w-8 h-8" />
                   </div>
@@ -342,7 +342,7 @@ export default function VideoConsult({
 
               {/* Waiting State */}
               {!peerConnected && !callEndedMsg && (
-                <div className="flex flex-col items-center gap-3 text-center p-6 max-w-sm">
+                <div className="flex flex-col items-center gap-3 text-center p-6 max-w-sm z-20">
                   <div className="w-12 h-12 rounded-full bg-emerald-900/60 border border-emerald-700 flex items-center justify-center animate-pulse">
                     <User className="w-6 h-6 text-emerald-400" />
                   </div>
@@ -359,7 +359,7 @@ export default function VideoConsult({
 
                   <button
                     onClick={() => initiateCall()}
-                    className="mt-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-xs uppercase flex items-center gap-1.5 transition shadow-lg"
+                    className="mt-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-mono text-xs uppercase flex items-center gap-1.5 transition shadow-lg rounded-xl"
                   >
                     <PhoneCall className="w-3.5 h-3.5" /> Re-Connect Video
                     Stream
@@ -367,8 +367,8 @@ export default function VideoConsult({
                 </div>
               )}
 
-              {/* LOCAL SELF-VIEW (Fixed z-30 Picture-in-Picture) */}
-              <div className="absolute bottom-4 right-4 w-36 sm:w-48 h-28 sm:h-36 bg-black border-2 border-zinc-700 shadow-2xl overflow-hidden z-30">
+              {/* LOCAL SELF-VIEW (Permanently Visible Picture-in-Picture with z-30) */}
+              <div className="absolute bottom-3 right-3 w-32 sm:w-44 h-24 sm:h-32 bg-black border-2 border-zinc-700 shadow-2xl overflow-hidden z-30 rounded-xl">
                 <video
                   ref={localVideoRef}
                   autoPlay
@@ -376,18 +376,18 @@ export default function VideoConsult({
                   muted
                   className={`w-full h-full object-cover ${isVideoOff ? "hidden" : "block"}`}
                 />
-                <span className="absolute bottom-1 left-1.5 text-[9px] font-mono bg-black/75 text-white px-1.5 py-0.5">
+                <span className="absolute bottom-1 left-1 text-[9px] font-mono bg-black/80 text-white px-1.5 py-0.5 rounded">
                   You ({isDoctor ? "Doctor" : "Patient"})
                 </span>
               </div>
 
               {/* Patient Details Badge (Top-Left) */}
-              <div className="absolute top-4 left-4 bg-zinc-900/90 border border-zinc-700 p-2.5 backdrop-blur-sm text-white font-mono text-xs space-y-0.5 z-20">
+              <div className="absolute top-3 left-3 bg-zinc-900/90 border border-zinc-700 p-2.5 backdrop-blur-sm text-white font-mono text-xs space-y-0.5 z-20 rounded-xl">
                 <div className="flex items-center gap-2">
                   <strong className="text-sm font-bold">
                     {patientDetails.name}
                   </strong>
-                  <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-1.5 py-0.5">
+                  <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-1.5 py-0.5 rounded">
                     {patientDetails.token || "T-001"}
                   </span>
                 </div>
@@ -398,11 +398,11 @@ export default function VideoConsult({
               </div>
             </div>
 
-            {/* Bottom Controls */}
-            <div className="pt-4 flex justify-center items-center gap-4">
+            {/* Bottom Call Controls (Permanently Pinned with shrink-0) */}
+            <div className="pt-3 flex justify-center items-center gap-4 shrink-0 z-30">
               <button
                 onClick={toggleMic}
-                className={`p-3.5 border transition ${
+                className={`p-3 rounded-xl border transition ${
                   isMuted
                     ? "bg-red-600 border-red-700 text-white"
                     : "bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-white"
@@ -418,7 +418,7 @@ export default function VideoConsult({
 
               <button
                 onClick={toggleVideo}
-                className={`p-3.5 border transition ${
+                className={`p-3 rounded-xl border transition ${
                   isVideoOff
                     ? "bg-red-600 border-red-700 text-white"
                     : "bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-white"
@@ -434,16 +434,16 @@ export default function VideoConsult({
 
               <button
                 onClick={handleEndCall}
-                className="px-6 py-3.5 bg-red-600 hover:bg-red-700 text-white font-mono text-xs uppercase tracking-wider flex items-center gap-2 transition"
+                className="px-5 py-3 bg-red-600 hover:bg-red-700 text-white font-mono text-xs uppercase tracking-wider flex items-center gap-2 transition rounded-xl font-bold shadow-lg"
               >
-                <PhoneOff className="w-5 h-5" />
+                <PhoneOff className="w-4 h-4" />
                 <span>End Consultation</span>
               </button>
             </div>
           </div>
 
           {/* Right Synced Chat */}
-          <div className="bg-zinc-900 border-l border-zinc-800 flex flex-col justify-between text-white h-full">
+          <div className="bg-zinc-900 border-l border-zinc-800 flex flex-col justify-between text-white h-full min-h-0 overflow-hidden">
             <div className="p-4 border-b border-zinc-800 space-y-1 shrink-0">
               <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-bold block">
                 Live Consultation Ledger
@@ -457,7 +457,7 @@ export default function VideoConsult({
               {chatMessages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`p-3 border ${msg.sender === userName ? "bg-emerald-950/70 border-emerald-700 ml-6 text-white" : "bg-zinc-950/80 border-zinc-800 mr-6 text-zinc-200"}`}
+                  className={`p-3 rounded-xl border ${msg.sender === userName ? "bg-emerald-950/70 border-emerald-700 ml-6 text-white" : "bg-zinc-950/80 border-zinc-800 mr-6 text-zinc-200"}`}
                 >
                   <div className="flex justify-between items-center text-[10px] font-mono text-zinc-400 mb-1">
                     <strong
@@ -471,7 +471,7 @@ export default function VideoConsult({
                     </strong>
                     <span>{msg.time}</span>
                   </div>
-                  <p className="text-xs">{msg.text}</p>
+                  <p className="text-xs leading-relaxed">{msg.text}</p>
                 </div>
               ))}
               <div ref={chatEndRef} />
@@ -490,11 +490,11 @@ export default function VideoConsult({
                 }
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                className="flex-1 bg-zinc-900 border border-zinc-700 text-white text-xs px-3 py-2.5 focus:outline-none focus:border-emerald-500 font-sans"
+                className="flex-1 bg-zinc-900 border border-zinc-700 text-white text-xs px-3 py-2.5 focus:outline-none focus:border-emerald-500 font-sans rounded-xl"
               />
               <button
                 type="submit"
-                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white flex items-center justify-center transition"
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white flex items-center justify-center transition rounded-xl"
               >
                 <Send className="w-4 h-4" />
               </button>
