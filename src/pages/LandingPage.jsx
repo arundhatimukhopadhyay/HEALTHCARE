@@ -23,7 +23,7 @@ export default function LandingPage() {
             Infrastructure Platform
           </div>
           <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-zinc-900 leading-tight">
-            Community Healthcare Companion
+            Medisphere
           </h1>
           <p className="text-base text-zinc-600 leading-relaxed font-normal">
             A decentralized, offline-first digital ecosystem connecting rural

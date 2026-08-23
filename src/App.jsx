@@ -19,7 +19,7 @@ function Navbar({ user, onLogout }) {
           </div>
           <div>
             <h1 className="text-sm font-bold uppercase tracking-wider font-mono text-zinc-900">
-              GraminHealth Core{" "}
+              Medisphere{" "}
               <span className="text-xs font-normal text-zinc-500 font-mono">
                 [v1.0-RC]
               </span>

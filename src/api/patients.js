@@ -7,12 +7,12 @@ const supabase = createClient(
 
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const { data, error } = await supabase.from("prescriptions").select("*");
+  const { data, error } = await supabase.from("users").select("*");
   if (error) return res.status(400).json({ error: error.message });
   return res.status(200).json(data);
 };

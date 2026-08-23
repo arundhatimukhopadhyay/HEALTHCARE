@@ -257,7 +257,7 @@ export default function VideoConsult({
           <div className="flex items-center gap-3">
             <div className="p-1.5 bg-emerald-700 text-white font-mono text-xs flex items-center gap-1.5">
               <Activity className="w-4 h-4 text-emerald-300" />
-              <span>P2P ENCRYPTED TELEHEALTH SESSION</span>
+              <span>MEDISPHERE | P2P ENCRYPTED TELEHEALTH SESSION</span>
             </div>
             <span className="text-xs font-mono text-zinc-400 hidden sm:inline">
               Status:{" "}
