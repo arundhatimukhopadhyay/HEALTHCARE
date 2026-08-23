@@ -21,6 +21,7 @@ import {
   Pause,
   Pill,
   Play,
+  Plus,
   RotateCcw,
   ShieldAlert,
   Sparkles,
@@ -42,14 +43,14 @@ export default function PatientPortal({ user, onLogout, theme }) {
   const navigate = useNavigate();
   const isDark = theme !== "light";
 
-  // Dynamic Patient Identity from Supabase / Auth Session
+  // Dynamic Patient Profile
   const patientName =
     user?.name || localStorage.getItem("patientName") || "Rahul Das";
   const patientId = user?.id || "PAT001";
   const patientVillage = user?.village || "Rampur";
   const patientAddress = `${patientVillage}, Odisha (District Health Subcenter)`;
 
-  // UI Modal States
+  // Modal & Input States
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [isSosOpen, setIsSosOpen] = useState(false);
@@ -63,7 +64,7 @@ export default function PatientPortal({ user, onLogout, theme }) {
   const [eveningTaken, setEveningTaken] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
 
-  // Persistent Token per Patient (Never resets on refresh!)
+  // Persistent Token & Symptom Note
   const [tokenInfo, setTokenInfo] = useState(() => {
     const saved = localStorage.getItem(`patient_token_${patientId}`);
     return saved
@@ -84,12 +85,10 @@ export default function PatientPortal({ user, onLogout, theme }) {
 
   const tokenNumber = tokenInfo.token;
 
-  // Medication Progress Calculation
   const completedDoses =
     Number(morningTaken) + Number(afternoonTaken) + Number(eveningTaken);
   const medicationProgress = (completedDoses / 3) * 100;
 
-  // Medication Streak Celebration
   useEffect(() => {
     if (morningTaken && afternoonTaken && eveningTaken) {
       setShowCelebration(true);
@@ -109,7 +108,6 @@ export default function PatientPortal({ user, onLogout, theme }) {
     navigate("/auth");
   };
 
-  // Voice Handlers
   const handleVoiceCommand = (command) => {
     if (command === "video_call") setIsVideoOpen(true);
     else if (command === "emergency_sos") setIsSosOpen(true);
@@ -120,7 +118,7 @@ export default function PatientPortal({ user, onLogout, theme }) {
     setBookingReason(text);
   };
 
-  // Sequential Token Booking & Supabase Persistence
+  // Unified Booking Handler (Works for both Voice AND Manual Typing)
   const handleBookAppointment = async (e) => {
     if (e) e.preventDefault();
     const reason =
@@ -153,23 +151,18 @@ export default function PatientPortal({ user, onLogout, theme }) {
       status: "In Waiting Room",
     };
 
-    setTokenInfo({
+    const updatedTokenState = {
       token: sequentialToken,
       doctor: "Dr. Rakesh Mohanty",
       center: `${patientVillage} Primary Subcenter`,
       estimatedWait: `${nextNumber * 6} mins`,
       spokenComplaint: reason,
-    });
+    };
 
+    setTokenInfo(updatedTokenState);
     localStorage.setItem(
       `patient_token_${patientId}`,
-      JSON.stringify({
-        token: sequentialToken,
-        doctor: "Dr. Rakesh Mohanty",
-        center: `${patientVillage} Primary Subcenter`,
-        estimatedWait: `${nextNumber * 6} mins`,
-        spokenComplaint: reason,
-      }),
+      JSON.stringify(updatedTokenState),
     );
 
     const updatedQueue = [
@@ -183,6 +176,8 @@ export default function PatientPortal({ user, onLogout, theme }) {
     window.dispatchEvent(new Event("shared-queue-updated"));
 
     setIsBookingOpen(false);
+    setBookingReason("");
+    setLastSpokenNote("");
     queueOfflineAction("BOOK_APPOINTMENT", newAppointment);
 
     try {
@@ -192,7 +187,7 @@ export default function PatientPortal({ user, onLogout, theme }) {
       });
     } catch (err) {}
 
-    alert(`✓ Token ${sequentialToken} Generated & Synced to Cloud!`);
+    alert(`✓ Generated ${sequentialToken}: "${reason}"`);
   };
 
   return (
@@ -240,7 +235,7 @@ export default function PatientPortal({ user, onLogout, theme }) {
           />
         )}
 
-        {/* SIDEBAR (Cleanly starts under the main navbar) */}
+        {/* SIDEBAR */}
         <aside
           className={`
             fixed inset-y-0 left-0 z-40 flex w-72
@@ -292,12 +287,6 @@ export default function PatientPortal({ user, onLogout, theme }) {
               onClick={() => scrollToSection("appointment")}
             />
             <SidebarButton
-              icon={<Home size={18} />}
-              text="Landing Page"
-              isDark={isDark}
-              onClick={() => navigate("/")}
-            />
-            <SidebarButton
               icon={<Pill size={18} />}
               text="Prescriptions"
               isDark={isDark}
@@ -337,24 +326,35 @@ export default function PatientPortal({ user, onLogout, theme }) {
         </aside>
 
         {/* MAIN CONTENT AREA */}
-        <main className="min-w-0 flex-1 px-4 sm:px-8 py-6 max-w-7xl mx-auto space-y-10">
-          {/* WELCOME BANNER */}
-          <section>
-            <p className="text-xs font-semibold tracking-[0.2em] text-cyan-400 font-mono uppercase">
-              PATIENT CARE DESK
-            </p>
-            <h1 className="mt-1 text-2xl sm:text-4xl font-bold">
-              Welcome back, <span className="text-cyan-400">{patientName}</span>{" "}
-              👋
-            </h1>
-            <div className="mt-2 flex items-center gap-2 text-xs text-slate-400 font-mono">
-              <MapPin size={14} className="text-cyan-400" />
-              <span>{patientAddress}</span>
+        <main className="min-w-0 flex-1 px-4 sm:px-8 py-6 max-w-7xl mx-auto space-y-8">
+          {/* WELCOME BANNER + RESTORED MANUAL BOOKING BUTTON */}
+          <section className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.2em] text-cyan-400 font-mono uppercase">
+                PATIENT CARE DESK
+              </p>
+              <h1 className="mt-1 text-2xl sm:text-4xl font-bold">
+                Welcome back,{" "}
+                <span className="text-cyan-400">{patientName}</span> 👋
+              </h1>
+              <div className="mt-1 flex items-center gap-2 text-xs text-slate-400 font-mono">
+                <MapPin size={14} className="text-cyan-400" />
+                <span>{patientAddress}</span>
+              </div>
             </div>
+
+            {/* RESTORED MANUAL BOOKING BUTTON */}
+            <button
+              onClick={() => setIsBookingOpen(true)}
+              className="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-mono text-xs uppercase font-bold px-4 py-3 rounded-xl flex items-center gap-2 transition shadow-[0_0_15px_rgba(34,211,238,0.3)]"
+            >
+              <Plus size={16} /> Book Token (Type Symptoms)
+            </button>
           </section>
 
-          {/* TOP SUMMARY GLOW CARDS */}
+          {/* TOP SUMMARY CARDS (WITH PROMINENT NOTE DISPLAY!) */}
           <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            {/* CLINIC TOKEN CARD (SHOWS TOKEN + NOTE!) */}
             <DashboardCard
               icon={<Hash size={22} />}
               color="#facc15"
@@ -364,12 +364,28 @@ export default function PatientPortal({ user, onLogout, theme }) {
               <p className="text-xs font-semibold tracking-wider text-yellow-400 font-mono uppercase">
                 CLINIC TOKEN
               </p>
-              <h2 className="mt-2 text-3xl font-bold font-mono">
+              <h2 className="mt-2 text-3xl font-bold font-mono text-cyan-400">
                 {tokenNumber}
               </h2>
-              <p className="mt-2 text-xs text-slate-400 font-mono">
+              <p className="mt-1 text-xs text-slate-400 font-mono">
                 Wait: {tokenInfo.estimatedWait} • {patientVillage} PHC
               </p>
+
+              {/* DISPLAY NOTE CLEARLY! */}
+              <div
+                className={`mt-3 p-2 rounded-xl border text-[11px] font-mono ${
+                  isDark
+                    ? "bg-slate-950 border-slate-800"
+                    : "bg-zinc-100 border-zinc-200"
+                }`}
+              >
+                <span className="text-slate-400 block text-[9px] uppercase">
+                  Reason for Visit:
+                </span>
+                <strong className="text-cyan-400 truncate block">
+                  "{tokenInfo.spokenComplaint}"
+                </strong>
+              </div>
             </DashboardCard>
 
             <DashboardCard
@@ -385,7 +401,7 @@ export default function PatientPortal({ user, onLogout, theme }) {
                 {tokenInfo.doctor}
               </h2>
               <p className="mt-2 text-xs text-slate-400 font-mono">
-                Medical Officer
+                Subcenter Medical Officer
               </p>
             </DashboardCard>
 
@@ -485,6 +501,7 @@ export default function PatientPortal({ user, onLogout, theme }) {
               <VoiceAssistant
                 onResult={handleVoiceResult}
                 onCommand={handleVoiceCommand}
+                theme={isDark ? "dark" : "light"}
                 readAloudText={`Hello ${patientName}. You have active prescription doses scheduled today in ${patientVillage}.`}
               />
 
@@ -637,7 +654,80 @@ export default function PatientPortal({ user, onLogout, theme }) {
         </main>
       </div>
 
-      {/* MEDICATION CELEBRATION MODAL */}
+      {/* RESTORED MANUAL APPOINTMENT BOOKING MODAL */}
+      {isBookingOpen && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div
+            className={`w-full max-w-md p-6 rounded-3xl border shadow-2xl ${
+              isDark
+                ? "bg-slate-900 border-slate-700 text-white"
+                : "bg-white border-zinc-300 text-zinc-900"
+            }`}
+          >
+            <div className="flex justify-between items-center pb-3 border-b border-slate-700">
+              <h3 className="font-bold font-mono uppercase text-sm">
+                Book Clinic Token (Manual)
+              </h3>
+              <button onClick={() => setIsBookingOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleBookAppointment} className="space-y-4 mt-4">
+              <div>
+                <label className="block text-xs font-mono uppercase text-slate-400 mb-1">
+                  Patient Name & Village
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value={`${patientName} (${patientVillage} Subcenter)`}
+                  className={`w-full p-2.5 rounded-xl border text-xs font-mono opacity-80 ${
+                    isDark
+                      ? "bg-slate-950 border-slate-700 text-white"
+                      : "bg-zinc-100 border-zinc-300 text-zinc-800"
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono uppercase text-slate-400 mb-1">
+                  Reason for Visit / Specific Symptoms
+                </label>
+                <textarea
+                  required
+                  rows="3"
+                  placeholder="Type your medical symptoms (e.g. cardiac arrhythmia, severe migraine)..."
+                  value={bookingReason}
+                  onChange={(e) => setBookingReason(e.target.value)}
+                  className={`w-full p-3 rounded-xl border text-xs focus:outline-none ${
+                    isDark
+                      ? "bg-slate-950 border-slate-700 text-white focus:border-cyan-400"
+                      : "bg-zinc-50 border-zinc-300 focus:border-cyan-500"
+                  }`}
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsBookingOpen(false)}
+                  className="px-4 py-2.5 border border-slate-700 text-xs font-mono uppercase rounded-xl hover:bg-slate-800 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-mono text-xs uppercase font-bold rounded-xl transition"
+                >
+                  Generate Token
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CELEBRATION MODAL */}
       {showCelebration && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-5 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-3xl border-2 border-yellow-400 bg-slate-900 p-8 text-center shadow-[0_0_60px_rgba(250,204,21,0.25)] text-white">

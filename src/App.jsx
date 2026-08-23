@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Link,
+  useNavigate,
+} from "react-router-dom";
 import { Lock, Globe2, Activity, Sun, Moon } from "lucide-react";
 
 import LandingPage from "./pages/LandingPage";
@@ -9,8 +15,17 @@ import PatientPortal from "./pages/PatientPortal";
 import WorkerDashboard from "./pages/WorkerDashboard";
 import GoogleTranslate from "./modules/GoogleTranslate";
 
+/* =====================================================
+   NAVBAR (WITH INSTANT REDIRECT LOGOUT)
+===================================================== */
 function Navbar({ user, onLogout, theme, toggleTheme }) {
+  const navigate = useNavigate();
   const isDark = theme === "dark";
+
+  const handleNavbarLogout = () => {
+    if (onLogout) onLogout();
+    navigate("/auth");
+  };
 
   return (
     <header
@@ -23,7 +38,7 @@ function Navbar({ user, onLogout, theme, toggleTheme }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex flex-wrap justify-between items-center gap-4">
         {/* MEDISPHERE BRAND */}
         <Link to="/" className="group flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400 text-slate-950 shadow-[0_0_15px_rgba(34,211,238,0.4)] transition-transform group-hover:scale-105">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400 text-slate-950 shadow-[0_0_15px_rgba(34,211,238,0.4)] transition-transform group-hover:scale-105 font-bold">
             <Activity size={22} />
           </div>
           <div>
@@ -46,7 +61,7 @@ function Navbar({ user, onLogout, theme, toggleTheme }) {
           {/* OFFLINE SYNC */}
           <OfflineSync />
 
-          {/* ☀️ / 🌙 THEME TOGGLE BUTTON */}
+          {/* THEME TOGGLE BUTTON */}
           <button
             type="button"
             onClick={toggleTheme}
@@ -97,7 +112,7 @@ function Navbar({ user, onLogout, theme, toggleTheme }) {
                 {user.name}
               </strong>
               <button
-                onClick={onLogout}
+                onClick={handleNavbarLogout}
                 className="ml-2 text-[10px] uppercase text-red-400 hover:text-red-300 transition font-bold"
               >
                 Logout
