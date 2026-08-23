@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import VideoConsult from "../modules/VideoConsult";
-import { apiRequest } from "../../api/client";
+import { apiRequest } from "../api/client";
 
 export default function WorkerDashboard({ user, onLogout }) {
   const navigate = useNavigate();

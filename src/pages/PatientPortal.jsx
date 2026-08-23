@@ -20,7 +20,7 @@ import VoiceAssistant from "../modules/VoiceAssistant";
 import VideoConsult from "../modules/VideoConsult";
 import EmergencyEscalation from "../modules/EmergencyEscalation";
 import { queueOfflineAction } from "../modules/OfflineSync";
-import { apiRequest } from "../../api/client";
+import { apiRequest } from "../api/client";
 
 export default function PatientPortal({ user, onLogout }) {
   const navigate = useNavigate();

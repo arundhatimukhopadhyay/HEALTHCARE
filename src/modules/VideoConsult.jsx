@@ -46,12 +46,26 @@ export default function VideoConsult({
 
   const isDoctor = userName.includes("Dr.") || userName.includes("Doctor");
 
-  // Standardized Clean Peer IDs
-  const cleanRoom = (roomName || "room1")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
+  // Automatically normalizes the room name so Doctor and Patient ALWAYS get the exact same ID!
+  const cleanRoom =
+    (roomName || "t001")
+      .toLowerCase()
+      .replace(/consultation/g, "")
+      .replace(/[^a-z0-9]/g, "") || "t001";
+
   const myPeerId = isDoctor ? `doc-${cleanRoom}` : `pat-${cleanRoom}`;
   const targetPeerId = isDoctor ? `pat-${cleanRoom}` : `doc-${cleanRoom}`;
+
+  // Auto-retry connection every 3 seconds until both video feeds are connected!
+  useEffect(() => {
+    if (peerConnected) return;
+    const autoRetry = setInterval(() => {
+      if (peerInstanceRef.current && mediaStreamRef.current && !peerConnected) {
+        initiateCall(mediaStreamRef.current);
+      }
+    }, 3000);
+    return () => clearInterval(autoRetry);
+  }, [peerConnected]);
 
   const defaultChat = [
     {

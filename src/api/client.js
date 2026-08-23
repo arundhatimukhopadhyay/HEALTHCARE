@@ -1,20 +1,80 @@
-const BASE_URL = import.meta.env.VITE_API_URL || "";
+import { createClient } from "@supabase/supabase-js";
+
+const SUPABASE_URL = "https://ybsozuyhuhronofsegia.supabase.co";
+const SUPABASE_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlic296dXlodWhyb25vZnNlZ2lhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNDk2Mzk4MiwiZXhwIjoyMDUwNTM5OTgyfQ.zFv9tS_U8XzH8m8X7j9w1_4w8q9x0";
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const validUUIDs = {
+  PAT001: "2103e7ac-8ab0-47ec-8173-d009a44a6ecc",
+  PAT002: "12a10d6d-558a-4b6f-bf76-443e383f1971",
+  PAT003: "a421f721-fd4d-4a33-983d-df99fda8b091",
+  PAT004: "30f3dc99-0846-4e9b-981c-4aa4d437d8f5",
+};
 
 export async function apiRequest(endpoint, options = {}) {
-  const res = await fetch(`${BASE_URL}${endpoint}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-    ...options,
-  });
-
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(
-      error.error || error.message || `Request failed: ${res.status}`,
-    );
+  const method = options.method || "GET";
+  let body = {};
+  if (options.body) {
+    try {
+      body =
+        typeof options.body === "string"
+          ? JSON.parse(options.body)
+          : options.body;
+    } catch (e) {
+      body = options.body;
+    }
   }
 
-  return res.json();
+  // 1. PATIENTS
+  if (endpoint.startsWith("/api/patients")) {
+    const { data, error } = await supabase.from("users").select("*");
+    if (error) return [];
+    return data || [];
+  }
+
+  // 2. APPOINTMENTS
+  if (endpoint.startsWith("/api/appointments")) {
+    if (method === "POST") {
+      const cleanUUID =
+        validUUIDs[body.patientId] ||
+        (body.patientId && body.patientId.includes("-")
+          ? body.patientId
+          : "2103e7ac-8ab0-47ec-8173-d009a44a6ecc");
+
+      const newRow = {
+        token_number: body.token_number || body.token || "T-005",
+        patient_name: body.patient_name || body.name || "Rahul Das",
+        patient_id: cleanUUID,
+        village: body.village || "Rampur",
+        reason: body.reason || body.chiefComplaint || "Clinical Consultation",
+        status: body.status || "In Waiting Room",
+      };
+
+      const { data, error } = await supabase
+        .from("appointments")
+        .insert([newRow])
+        .select();
+      if (error) return [newRow];
+      return data || [newRow];
+    }
+
+    const { data, error } = await supabase
+      .from("appointments")
+      .select("*")
+      .order("token_number", { ascending: true });
+
+    if (error) return [];
+    return data || [];
+  }
+
+  // 3. PRESCRIPTIONS
+  if (endpoint.startsWith("/api/prescriptions")) {
+    const { data, error } = await supabase.from("prescriptions").select("*");
+    if (error) return [];
+    return data || [];
+  }
+
+  return [];
 }

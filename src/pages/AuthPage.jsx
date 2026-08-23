@@ -10,7 +10,7 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { apiRequest } from "../../api/client";
+import { apiRequest } from "../api/client";
 
 export default function AuthPage({ onLogin }) {
   const [searchParams] = useSearchParams();
